@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>Docker Monitor</title>
+    <style>
+        body { font-family: 'Courier New', monospace; margin: 20px; background: #1a1a1a; color: #e6f0e6; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { padding: 2px 2px; text-align: left; border-bottom: 1px solid #303030; }
+        th { background-color: #002200; }
+        tr:hover { background-color: #003300; }
+        .progress-container {
+            height: 15px;
+            background: #002200;
+            border-radius: 3px;
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+        }
+        .progress-bar {
+            height: 100%;
+            background: #007500;
+            transition: width 0.5s ease;
+        }
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #e6f0e6;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(255,255,255,0.5);
+            font-size: 16px;
+            white-space: nowrap;
+        }
+        .menu {
+            display: none;
+            position: absolute;
+            background-color: #303030;
+            border: 1px solid #444;
+            z-index: 1;
+            padding: 10px;
+        }
+        .menu button {
+            display: block;
+            background: none;
+            color: #e6f0e6;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        .menu button:hover {
+            background: #444;
+        }
+        /* Színkódok a státuszokhoz */
+        .running { color: #43b302; }
+        .stopped { color: #c21e0c; }
+        .paused { color: #c2c20c; }
+    </style>
+</head>
+<body>
+    <table id="containers-table">
+        <thead>
+            <tr>
+                <th style="width: 25%;">NAME</th>
+                <th style="width: 10%;">CID</th>
+                <th style="width: 12%;">CPU%</th>
+                <th style="width: 12%;">MEM</th>
+                <th style="width: 18%;">NET RX/TX</th>
+                <th style="width: 18%;">IO R/W</th>
+                <th style="width: 10%;">STATUS</th>
+            </tr>
+        </thead>
+        <tbody id="containers-body">
+        </tbody>
+    </table>
+
+    <script>
+        let refreshInterval = null;
+        let menuOpen = false;
+        let openMenuCid = null;
+
+        function startRefresh() {
+            if (!refreshInterval) {
+                refreshInterval = setInterval(updateTable, 1000);
+            }
+        }
+
+        function stopRefresh() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+        }
+
+        function updateTable() {
+            fetch('/data')
+                .then(response => response.json())
+                .then(data => {
+                    // Ha a menü nyitva van, ne frissítsük a táblázatot
+                    if (menuOpen) return;
+                    const tbody = document.getElementById('containers-body');
+                    tbody.innerHTML = data.map(container => {
+                        const statusClass = container.status.toLowerCase(); // Az állapot kisbetűvel
+                        return `
+                            <tr>
+                                <td style="position: relative;">
+                                    <span class="${statusClass}" onclick="showMenu(event, '${container.cid}')">${container.name}</span>
+                                    <div id="menu-${container.cid}" class="menu" onclick="event.stopPropagation()">
+                                        <button onclick="manageContainer('start', '${container.cid}')">START</button>
+                                        <button onclick="manageContainer('stop', '${container.cid}')">STOP</button>
+                                        <button onclick="manageContainer('restart', '${container.cid}')">RESTART</button>
+                                        <button onclick="manageContainer('pause', '${container.cid}')">PAUSE</button>
+                                        <button onclick="manageContainer('resume', '${container.cid}')">RESUME</button>
+                                    </div>
+                                </td>
+                                <td>${container.cid}</td>
+                                <td>
+                                    <div class="progress-container">
+                                        <div class="progress-bar" style="width: ${container.cpu}%"></div>
+                                        <span class="progress-text">${container.cpu_display}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="progress-container">
+                                        <div class="progress-bar" style="width: ${container.mem_percent}%"></div>
+                                        <span class="progress-text">${container.mem}</span>
+                                    </div>
+                                </td>
+                                <td>${container.net}</td>
+                                <td>${container.io}</td>
+                                <td>${container.status}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                });
+        }
+
+        function showMenu(event, cid) {
+            menuOpen = true;
+            event.stopPropagation();
+            if (openMenuCid && openMenuCid !== cid) {
+                const oldMenu = document.getElementById(`menu-${openMenuCid}`);
+                if (oldMenu) {
+                    oldMenu.style.display = 'none';
+                }
+            }
+            const menu = document.getElementById(`menu-${cid}`);
+            if (menu) {
+                if (menu.style.display === 'block') {
+                    menu.style.display = 'none';
+                    menuOpen = false;
+                    openMenuCid = null;
+                    startRefresh();
+                } else {
+                    menu.style.display = 'block';
+                    openMenuCid = cid;
+                    stopRefresh();
+                }
+            }
+        }
+
+        function hideMenus() {
+            if (!menuOpen) return;
+            if (openMenuCid) {
+                const menu = document.getElementById(`menu-${openMenuCid}`);
+                if (menu) {
+                    menu.style.display = 'none';
+                }
+            }
+            menuOpen = false;
+            openMenuCid = null;
+            startRefresh();
+        }
+
+        function manageContainer(action, cid) {
+            fetch('/manage', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ action: action, cid: cid })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateTable();
+                } else {
+                    console.log('Hiba a konténer kezelése során');
+                }
+                hideMenus();
+            });
+        }
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.menu') && !e.target.closest('span[onclick^="showMenu"]')) {
+                hideMenus();
+            }
+        });
+
+        startRefresh();
+        updateTable();
+    </script>
+</body>
+</html>
