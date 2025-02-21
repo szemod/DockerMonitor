@@ -58,7 +58,7 @@ Using nssm.exe (Non-Sucking Service Manager), the installer registers and starts
 Access the Dashboard:
 
 Once installation is complete, the service will start automatically. Open your web browser and navigate to:
-http://localhost:<port>/
+http://localhost:port/
 Replace <port> with the port you specified during installation.
 
 Repository Structure:
