@@ -58,6 +58,7 @@ Use the name and password you provided during installation to log in, which shou
 
 - `web_ctop_original.py`: The main Python script that retrieves Docker container statistics and serves the web dashboard.
 - `templates/index.html`: The HTML template for the web interface, styled for a minimal and responsive design.
+- `templates/login.html`: The HTML template for the login window, styled for a minimal and responsive design.
 - `installer.iss`: The Inno Setup script used to generate the Windows installer, configuring service name, installation directory, SSH settings, and port.
 - `nssm.exe`: The executable used to manage the Windows service.
 
