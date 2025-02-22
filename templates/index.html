@@ -24,6 +24,7 @@
             position: sticky;
             top: 0;
             z-index: 2;
+            cursor: pointer;
         }
         tr:hover {
             background-color: #003300;
@@ -71,11 +72,9 @@
         .menu button:hover {
             background: #444;
         }
-        /* Status color codes */
         .running { color: #43b302; }
         .stopped { color: #c21e0c; }
         .paused { color: #c2c20c; }
-        /* Style for logout button in header */
         .logout-header {
             cursor: pointer;
             text-decoration: none;
@@ -95,10 +94,10 @@
     <table id="containers-table">
         <thead>
             <tr>
-                <th style="width: 25%;">NAME</th>
-                <th style="width: 10%;">CID</th>
-                <th style="width: 12%;">CPU%</th>
-                <th style="width: 12%;">MEM</th>
+                <th id="th-name" style="width: 25%;" onclick="showNameFilter()">NAME</th>
+                <th style="width: 10%;" onclick="resetSorting()">CID</th>
+                <th style="width: 12%;" onclick="setSort('cpu')">CPU%</th>
+                <th style="width: 12%;" onclick="setSort('mem')">MEM</th>
                 <th style="width: 18%;">NET RX/TX</th>
                 <th style="width: 18%;">IO R/W</th>
                 <th style="width: 10%;" onclick="window.location.href='/logout'" class="logout-header">LOGOUT</th>
@@ -112,6 +111,19 @@
         let refreshInterval = null;
         let menuOpen = false;
         let openMenuCid = null;
+        let filterText = "";
+        let sortColumn = "name";
+
+        function getSortValue(container, column) {
+            if (column === "name") {
+                return container.name.toLowerCase();
+            } else if (column === "cpu") {
+                return parseFloat(container.cpu) || 0;
+            } else if (column === "mem") {
+                return parseFloat(container.mem_used_val) || 0;
+            }
+            return container.name.toLowerCase();
+        }
 
         function startRefresh() {
             if (!refreshInterval) {
@@ -130,11 +142,29 @@
             fetch('/data')
                 .then(response => response.json())
                 .then(data => {
-                    // If menu is open, do not refresh
                     if (menuOpen) return;
+
+                    if (filterText.trim() !== "") {
+                        data = data.filter(container =>
+                            container.name.toLowerCase().startsWith(filterText.toLowerCase())
+                        );
+                    }
+
+                    data.sort((a, b) => {
+                        let valA = getSortValue(a, sortColumn);
+                        let valB = getSortValue(b, sortColumn);
+                        if (sortColumn === "name") {
+                            return valA.localeCompare(valB);
+                        } else {
+                            return valB - valA;
+                        }
+                    });
+
                     const tbody = document.getElementById('containers-body');
                     tbody.innerHTML = data.map(container => {
                         const statusClass = container.status.toLowerCase();
+                        const barWidth = container.mem_bar_percent.toFixed(1) + '%';
+
                         return `
                             <tr>
                                 <td style="position: relative;">
@@ -150,13 +180,13 @@
                                 <td>${container.cid}</td>
                                 <td>
                                     <div class="progress-container">
-                                        <div class="progress-bar" style="width: ${container.cpu}%"></div>
+                                        <div class="progress-bar" style="width: ${container.cpu}%;"></div>
                                         <span class="progress-text">${container.cpu_display}</span>
                                     </div>
                                 </td>
                                 <td>
                                     <div class="progress-container">
-                                        <div class="progress-bar" style="width: ${container.mem_percent}%"></div>
+                                        <div class="progress-bar" style="width: ${barWidth};"></div>
                                         <span class="progress-text">${container.mem}</span>
                                     </div>
                                 </td>
@@ -224,6 +254,49 @@
                 hideMenus();
             });
         }
+
+        function showNameFilter() {
+            sortColumn = "name";
+            const thName = document.getElementById("th-name");
+            thName.innerHTML = '<input type="text" id="nameFilterInput" placeholder="Filter by name" onkeyup="onNameFilterChange(event)" onblur="resetNameFilter()" />';
+            document.getElementById("nameFilterInput").focus();
+        }
+
+        function onNameFilterChange(event) {
+            filterText = event.target.value;
+            updateTable();
+        }
+
+        function resetNameFilter() {
+            const thName = document.getElementById("th-name");
+            thName.innerHTML = 'NAME';
+            thName.onclick = showNameFilter;
+            updateTable();
+        }
+
+        function setSort(column) {
+            sortColumn = column;
+            const thName = document.getElementById("th-name");
+            if (thName.querySelector('input')) {
+                resetNameFilter();
+            }
+            updateTable();
+        }
+
+        function resetSorting() {
+            sortColumn = "name";
+            filterText = "";
+            const thName = document.getElementById("th-name");
+            thName.innerHTML = 'NAME';
+            thName.onclick = showNameFilter;
+            updateTable();
+        }
+
+        document.getElementById("containers-body").addEventListener("click", function(e) {
+            if(e.target.tagName !== "INPUT" && !e.target.closest(".menu")) {
+                resetSorting();
+            }
+        });
 
         document.addEventListener('click', function(e) {
             if (!e.target.closest('.menu') && !e.target.closest('span[onclick^="showMenu"]')) {
