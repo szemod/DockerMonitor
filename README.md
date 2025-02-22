@@ -19,6 +19,10 @@ Use the name and password you provided during installation to log in, which shou
     - I/O statistics
 - **Container Status & Management:**
   - Shows the status of each container (running, paused, stopped) and provides actions for managing containers (start, stop, restart, pause, resume) through a context menu.
+- **Filtering containers by name:**
+  - Clicking on 'NAME' in the header row opens a text input field where you can search or filter containers by name.
+- **Sorting by resource usage:**
+  - Clicking on 'CPU' or 'MEM' in the header row allows you to sort the containers in descending order based on the selected resource usage. Clicking anywhere on the screen resets the display to the default name-based sorting.
 - **Remote Docker Host Access:**
   - Uses SSH (via Paramiko) to connect to a Docker host and execute commands for fetching container statistics.
 - **Multiple Instance Support:**
