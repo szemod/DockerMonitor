@@ -2,17 +2,19 @@
 
 import time
 import paramiko
-from flask import Flask, render_template, jsonify, request
-
+from flask import Flask, render_template, jsonify, request, session, redirect, url_for
 app = Flask(__name__)
 
-# Az SSH és port beállítások
+# Secret key for session management - change this to a random secret!
+app.secret_key = 'supersecretkey'
+
+# SSH and Port Settings.
 SSH_PASSWORD = 'PASSWORD OF YOUR HOST USER'
 SSH_HOST = 'IP ADDRESS OF YOUR HOST WHERE YOUR CONTAINERS RUNNING'
 SSH_USER = 'USER OF YOU HOST WHO HAS PRIVILIGE FOR DOCKER'
-PORT = 5434  # Itt sztatikusan 5434 van, ezt felülírjuk a telepítőből
+PORT = 5434  # It’s statically set to 5434 here; it will override it from the installer.
 
-# Állítsa vissza a portot a telepítőből
+# Restore the port from the installer.
 def set_port(port):
     global PORT
     PORT = port
@@ -25,6 +27,7 @@ def get_ssh_connection():
     ssh.connect(SSH_HOST, username=SSH_USER, password=SSH_PASSWORD)
     return ssh
 
+# Unit conversion.
 def convert_to_mb(value_str):
     value_str = value_str.strip()
     if value_str == 'N/A':
@@ -45,6 +48,7 @@ def convert_to_mb(value_str):
         return 0.0
     return num / 1024 if unit == 'K' else num if unit == 'M' else num * 1024 if unit == 'G' else num * 1024 * 1024 if unit == 'T' else num
 
+# Retrieve container information from Docker.
 def parse_docker_stats(output):
     containers = []
     for line in output.strip().split('\n'):
@@ -83,6 +87,7 @@ def parse_docker_stats(output):
         })
     return containers
 
+# Basic container operations functionalities.
 def parse_container_status(status_str):
     status_str = status_str.strip()
     if "Paused" in status_str:
@@ -106,10 +111,10 @@ def fetch_docker_data():
         containers = parse_docker_stats(output_stats)
         ssh.close()
     except Exception as e:
-        print(f"Hiba az adatlekérés során: {str(e)}")
+        print(f"Error retrieving the data.: {str(e)}")
         containers = []
 
-    # Lekérjük a konténerek státuszát
+    # Fetch the status of the containers.
     command_status = """ docker ps -a --format "{{.ID}}|{{.Status}}" """
     try:
         ssh = get_ssh_connection()
@@ -117,7 +122,7 @@ def fetch_docker_data():
         output_status = stdout.read().decode()
         ssh.close()
     except Exception as e:
-        print(f"Hiba a status lekérés során: {str(e)}")
+        print(f"Error retrieving the status.: {str(e)}")
         output_status = ""
 
     statuses = {}
@@ -133,6 +138,31 @@ def fetch_docker_data():
         container['status'] = statuses.get(container['cid'], 'unknown')
 
     containers_data = containers
+
+@app.before_request
+def require_login():
+    # We allow access to /login and static files.
+    if request.endpoint not in ['login', 'static']:
+        if not session.get('logged_in'):
+            return redirect(url_for('login'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    error = None
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        if username == SSH_USER and password == SSH_PASSWORD:
+            session['logged_in'] = True
+            return redirect(url_for('index'))
+        else:
+            error = "Incorrect username or password!"
+    return render_template('login.html', error=error)
+
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None)
+    return redirect(url_for('login'))
 
 @app.route('/')
 def index():
@@ -151,7 +181,7 @@ def manage():
     return jsonify(success=True)
 
 def manage_container(action, container_id):
-    # A "RESUME" gombnál az "unpause" parancs szükséges
+
     if action.lower() == 'resume':
         action = 'unpause'
     command = f"docker {action} {container_id}"
@@ -160,7 +190,7 @@ def manage_container(action, container_id):
         ssh.exec_command(command)
         ssh.close()
     except Exception as e:
-        print(f"Hiba a konténer {action} során: {str(e)}")
+        print(f"Error during container {action}: {str(e)}")
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT)
