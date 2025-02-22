@@ -32,7 +32,7 @@ Use the name and password you provided during installation to log in, which shou
 
 - **Python:** Ensure Python is installed and added to your system's PATH.
 - **Docker Host:** Access to a Docker host (local or remote) with SSH privileges to run Docker commands.
-- **Inno Setup** (Optional): Required only if you plan to rebuild the installer.
+- **Inno Setup** (Optional): Required only if you plan to rebuild/modify the installer.
 
 ### Installation Steps
 
