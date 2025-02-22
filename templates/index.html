@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="hu">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>Docker Monitor</title>
@@ -52,10 +52,26 @@
         .menu button:hover {
             background: #444;
         }
-        /* Színkódok a státuszokhoz */
+        /* Status color codes */
         .running { color: #43b302; }
         .stopped { color: #c21e0c; }
         .paused { color: #c2c20c; }
+        /* Style for logout button */
+        .logout-header {
+            cursor: pointer;
+            text-decoration: none;
+            background-color: green;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+
+        /* Hover effect for logout button */
+        .logout-header:hover {
+            background-color: darkgreen;
+        }
     </style>
 </head>
 <body>
@@ -68,7 +84,7 @@
                 <th style="width: 12%;">MEM</th>
                 <th style="width: 18%;">NET RX/TX</th>
                 <th style="width: 18%;">IO R/W</th>
-                <th style="width: 10%;">STATUS</th>
+                <th style="width: 10%;" onclick="window.location.href='/logout'" class="logout-header">LOGOUT</th>
             </tr>
         </thead>
         <tbody id="containers-body">
@@ -97,11 +113,11 @@
             fetch('/data')
                 .then(response => response.json())
                 .then(data => {
-                    // Ha a menü nyitva van, ne frissítsük a táblázatot
+                    // If menu is open, do not refresh
                     if (menuOpen) return;
                     const tbody = document.getElementById('containers-body');
                     tbody.innerHTML = data.map(container => {
-                        const statusClass = container.status.toLowerCase(); // Az állapot kisbetűvel
+                        const statusClass = container.status.toLowerCase();
                         return `
                             <tr>
                                 <td style="position: relative;">
@@ -186,7 +202,7 @@
                 if (data.success) {
                     updateTable();
                 } else {
-                    console.log('Hiba a konténer kezelése során');
+                    console.log('Error managing container');
                 }
                 hideMenus();
             });
