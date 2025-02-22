@@ -23,14 +23,15 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Files]
 Source: "web_ctop_original.py"; DestDir: "{tmp}"; Flags: ignoreversion
 Source: "templates\index.html"; DestDir: "{app}\templates"; Flags: ignoreversion
+Source: "templates\login.html"; DestDir: "{app}\templates"; Flags: ignoreversion
 Source: "nssm.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Run]
 Filename: "cmd.exe"; Parameters: "/C where python > ""{tmp}\python_path.txt"""; Flags: runhidden
-Filename: "cmd.exe"; Parameters: "/C copy ""{tmp}\web_ctop_original.py"" ""{app}\web_ctop_original.py"""; Flags: runhidden; StatusMsg: "Másolás a web_ctop.py fájlhoz..."
-Filename: "powershell.exe"; Parameters: "-Command ""Get-Content -Path '{app}\web_ctop_original.py' | Set-Content -Path '{app}\web_ctop.py' -Encoding UTF8"""; Flags: runhidden; StatusMsg: "Visszaállítás UTF-8 kódolásra a web_ctop.py fájlnál..."
-Filename: "{app}\nssm.exe"; Parameters: "install ""{code:GetServiceName}"" ""{app}\venv\Scripts\python.exe"" ""{app}\web_ctop.py"""; WorkingDir: "{app}"; Flags: runhidden; StatusMsg: "DockerMonitor szolgáltatás telepítése..."
-Filename: "{app}\nssm.exe"; Parameters: "start ""{code:GetServiceName}"""; Flags: runhidden; StatusMsg: "DockerMonitor szolgáltatás indítása..."
+Filename: "cmd.exe"; Parameters: "/C copy ""{tmp}\web_ctop_original.py"" ""{app}\web_ctop_original.py"""; Flags: runhidden; StatusMsg: "Copying to the web_ctop.py file..."
+Filename: "powershell.exe"; Parameters: "-Command ""Get-Content -Path '{app}\web_ctop_original.py' | Set-Content -Path '{app}\web_ctop.py' -Encoding UTF8"""; Flags: runhidden; StatusMsg: "Resetting to UTF-8 encoding for the web_ctop.py file..."
+Filename: "{app}\nssm.exe"; Parameters: "install ""{code:GetServiceName}"" ""{app}\venv\Scripts\python.exe"" ""{app}\web_ctop.py"""; WorkingDir: "{app}"; Flags: runhidden; StatusMsg: "Installing the DockerMonitor service..."
+Filename: "{app}\nssm.exe"; Parameters: "start ""{code:GetServiceName}"""; Flags: runhidden; StatusMsg: "Starting the DockerMonitor service..."
 
 [UninstallRun]
 Filename: "{app}\nssm.exe"; Parameters: "stop ""{code:GetServiceName}"""; Flags: runhidden; RunOnceId: "StopDockerMonitor"
@@ -41,8 +42,8 @@ var
   SSHHostPage: TInputQueryWizardPage;
   SSHUserPage: TInputQueryWizardPage;
   SSHPasswordPage: TInputQueryWizardPage;
-  PortPage: TInputQueryWizardPage;  // Új beviteli oldal a port számára
-  ServiceNamePage: TInputQueryWizardPage;  // Új beviteli oldal a szolgáltatás névhez
+  PortPage: TInputQueryWizardPage;  
+  ServiceNamePage: TInputQueryWizardPage; 
   PythonExecutablePath: String;
 
 procedure InitializeWizard;
@@ -73,22 +74,22 @@ begin
   SSHPasswordPage.Add('Password:', False);
 end;
 
-function GetPythonPath: String;  // Python elérési út keresése
+function GetPythonPath: String;  
 var
   ResultCode: Integer;
   Lines: TArrayOfString;
 begin
   Result := '';
-  // A python elérési út keresése a cmd segítségével
+
   if Exec('cmd.exe', '/C where python > "' + ExpandConstant('{tmp}\python_path.txt') + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
   begin
-    // Ellenőrizzük, hogy a fájl létezik-e
+
     if FileExists(ExpandConstant('{tmp}\python_path.txt')) then
     begin
-      // Próbáljuk meg betölteni a fájl tartalmát
+
       if LoadStringsFromFile(ExpandConstant('{tmp}\python_path.txt'), Lines) then
       begin
-        // Az első sor tartalmazza az elérési utat
+      
         if GetArrayLength(Lines) > 0 then
           Result := Trim(Lines[0]);
       end;
@@ -101,7 +102,7 @@ end;
 
 function GetServiceName(Param: String): String;
 begin
-  Result := ServiceNamePage.Values[0];  // Visszaadja a megadott szolgáltatás nevet
+  Result := ServiceNamePage.Values[0];  
 end;
 
 procedure ModifyWebCtopFile(FilePath: string);
@@ -117,7 +118,7 @@ begin
         Lines[I] := 'SSH_HOST = ''' + SSHHostPage.Values[0] + '''';
       if Pos('SSH_USER =', Lines[I]) > 0 then
         Lines[I] := 'SSH_USER = ''' + SSHUserPage.Values[0] + '''';
-      if Pos('PORT =', Lines[I]) > 0 then  // A port beállítása
+      if Pos('PORT =', Lines[I]) > 0 then  
         Lines[I] := 'PORT = ' + PortPage.Values[0];
     end;
     SaveStringsToFile(FilePath, Lines, False);
@@ -129,15 +130,13 @@ var
   ResultCode: Integer;
 begin
   if CurStep = ssPostInstall then begin
-    // Módosítja a web_ctop.py fájlt a megadott SSH beállításokkal és porttal
+
     ModifyWebCtopFile(ExpandConstant('{app}\web_ctop.py'));
 
-    // Megkeresi a Python elérési utat
     PythonExecutablePath := GetPythonPath();
     if PythonExecutablePath = '' then
-      Exit; // Ha nincs megtalálva, kilép
+      Exit; 
 
-    // Ha nem létezik a virtuális környezet, létrehozza azt
     if not DirExists(ExpandConstant('{app}\venv')) then begin
       if Exec(PythonExecutablePath, '-m venv venv', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode) then begin
         if ResultCode = 0 then begin
@@ -149,11 +148,9 @@ begin
       end;
     end;
 
-    // Telepíti a szolgáltatást
     if not Exec(ExpandConstant('{app}\nssm.exe'), 'install "' + GetServiceName('') + '" "' + ExpandConstant('{app}\venv\Scripts\python.exe') + '" "' + ExpandConstant('{app}\web_ctop.py') + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
       MsgBox('Failed to install DockerMonitor service.', mbError, MB_OK);
     
-    // Indítja a szolgáltatást
     if not Exec(ExpandConstant('{app}\nssm.exe'), 'start "' + GetServiceName('') + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
       MsgBox('Failed to start DockerMonitor service.', mbError, MB_OK);
   end;
@@ -191,5 +188,5 @@ end;
 
 function InitializeSetup: Boolean;
 begin
-  Result := True; // Mindig folytatja a telepítést
+  Result := True; 
 end;
