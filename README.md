@@ -46,7 +46,7 @@ Use the name and password you provided during installation to log in, which shou
      - **SSH Details:** Provide the SSH host IP, username, and password for connecting to the Docker host.
 
 3. **Installation Process:**
-   - The installer copies the application files (`web_ctop_original.py` and `templates/index.html`) to the selected directory.
+   - The installer copies the application files (`web_ctop_original.py`, `templates/index.html` and `templates/login.html`) to the selected directory.
    - It creates a Python virtual environment and automatically installs the required packages (`Flask` and `Paramiko`).
    - Configuration settings are modified based on the provided inputs, and the application is registered as a Windows service using `nssm.exe`.
 
