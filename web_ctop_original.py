@@ -3,23 +3,19 @@
 import time
 import paramiko
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
+
 app = Flask(__name__)
 
-# Secret key for session management - change this to a random secret!
 app.secret_key = 'supersecretkey'
 
-# SSH and Port Settings.
 SSH_PASSWORD = 'PASSWORD OF YOUR HOST USER'
 SSH_HOST = 'IP ADDRESS OF YOUR HOST WHERE YOUR CONTAINERS RUNNING'
 SSH_USER = 'USER OF YOU HOST WHO HAS PRIVILIGE FOR DOCKER'
-PORT = 5434  # It’s statically set to 5434 here; it will override it from the installer.
+PORT = 5434
 
-# Restore the port from the installer.
 def set_port(port):
     global PORT
     PORT = port
-
-containers_data = []
 
 def get_ssh_connection():
     ssh = paramiko.SSHClient()
@@ -27,7 +23,6 @@ def get_ssh_connection():
     ssh.connect(SSH_HOST, username=SSH_USER, password=SSH_PASSWORD)
     return ssh
 
-# Unit conversion.
 def convert_to_mb(value_str):
     value_str = value_str.strip()
     if value_str == 'N/A':
@@ -46,9 +41,19 @@ def convert_to_mb(value_str):
         num = float(num_part)
     except ValueError:
         return 0.0
-    return num / 1024 if unit == 'K' else num if unit == 'M' else num * 1024 if unit == 'G' else num * 1024 * 1024 if unit == 'T' else num
 
-# Retrieve container information from Docker.
+    first_char = unit[0] if unit else ''
+    if first_char == 'K':
+        return num / 1024
+    elif first_char == 'M':
+        return num
+    elif first_char == 'G':
+        return num * 1024
+    elif first_char == 'T':
+        return num * 1024 * 1024
+    else:
+        return num
+
 def parse_docker_stats(output):
     containers = []
     for line in output.strip().split('\n'):
@@ -71,8 +76,10 @@ def parse_docker_stats(output):
             mem_percent = (used_mb / total_mb * 100) if total_mb > 0 else 0
             mem_used_formatted = f"{used_mb:.1f} MB"
         else:
-            mem_used_formatted = mem.strip() + " MB"
+            used_mb = convert_to_mb(mem.strip())
+            total_mb = 0
             mem_percent = 0
+            mem_used_formatted = f"{used_mb:.1f} MB"
 
         containers.append({
             'name': name,
@@ -80,6 +87,7 @@ def parse_docker_stats(output):
             'cpu': cpu_percent,
             'cpu_display': f"{cpu_percent:.1f} %",
             'mem': mem_used_formatted,
+            'mem_used_val': used_mb,
             'mem_percent': mem_percent,
             'net': net,
             'io': io,
@@ -87,7 +95,6 @@ def parse_docker_stats(output):
         })
     return containers
 
-# Basic container operations functionalities.
 def parse_container_status(status_str):
     status_str = status_str.strip()
     if "Paused" in status_str:
@@ -100,7 +107,6 @@ def parse_container_status(status_str):
         return status_str
 
 def fetch_docker_data():
-    global containers_data
     command_stats = """
     docker stats --all --no-stream --format "{{.Container}}|{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}|{{.BlockIO}}|{{.PIDs}}"
     """
@@ -108,13 +114,12 @@ def fetch_docker_data():
         ssh = get_ssh_connection()
         stdin, stdout, stderr = ssh.exec_command(command_stats)
         output_stats = stdout.read().decode()
-        containers = parse_docker_stats(output_stats)
         ssh.close()
     except Exception as e:
-        print(f"Error retrieving the data.: {str(e)}")
-        containers = []
+        output_stats = ""
 
-    # Fetch the status of the containers.
+    containers = parse_docker_stats(output_stats)
+
     command_status = """ docker ps -a --format "{{.ID}}|{{.Status}}" """
     try:
         ssh = get_ssh_connection()
@@ -122,7 +127,6 @@ def fetch_docker_data():
         output_status = stdout.read().decode()
         ssh.close()
     except Exception as e:
-        print(f"Error retrieving the status.: {str(e)}")
         output_status = ""
 
     statuses = {}
@@ -137,11 +141,17 @@ def fetch_docker_data():
     for container in containers:
         container['status'] = statuses.get(container['cid'], 'unknown')
 
-    containers_data = containers
+    max_used = max((c['mem_used_val'] for c in containers), default=0)
+    for c in containers:
+        if max_used > 0:
+            c['mem_bar_percent'] = (c['mem_used_val'] / max_used) * 100
+        else:
+            c['mem_bar_percent'] = 0
+
+    return containers
 
 @app.before_request
 def require_login():
-    # We allow access to /login and static files.
     if request.endpoint not in ['login', 'static']:
         if not session.get('logged_in'):
             return redirect(url_for('login'))
@@ -156,7 +166,7 @@ def login():
             session['logged_in'] = True
             return redirect(url_for('index'))
         else:
-            error = "Incorrect username or password!"
+            error = "Invalid username or password!"
     return render_template('login.html', error=error)
 
 @app.route('/logout')
@@ -170,18 +180,13 @@ def index():
 
 @app.route('/data')
 def data():
-    fetch_docker_data()
-    return jsonify(containers_data)
+    containers = fetch_docker_data()
+    return jsonify(containers)
 
 @app.route('/manage', methods=['POST'])
 def manage():
     action = request.json.get('action')
     container_id = request.json.get('cid')
-    manage_container(action, container_id)
-    return jsonify(success=True)
-
-def manage_container(action, container_id):
-
     if action.lower() == 'resume':
         action = 'unpause'
     command = f"docker {action} {container_id}"
@@ -190,7 +195,8 @@ def manage_container(action, container_id):
         ssh.exec_command(command)
         ssh.close()
     except Exception as e:
-        print(f"Error during container {action}: {str(e)}")
+        pass
+    return jsonify(success=True)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT)
