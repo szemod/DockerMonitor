@@ -48,6 +48,7 @@ Use the name and password you provided during installation to log in, which shou
 3. **Installation Process:**
    - The installer copies the application files (`web_ctop_original.py`, `templates/index.html` and `templates/login.html`) to the selected directory.
    - It creates a Python virtual environment and automatically installs the required packages (`Flask` and `Paramiko`).
+   - Ensures the Python file is properly encoded (UTF-8) for execution.
    - Configuration settings are modified based on the provided inputs, and the application is registered as a Windows service using `nssm.exe`.
 
 ### Accessing the Dashboard
