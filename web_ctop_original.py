@@ -5,9 +5,9 @@ import paramiko
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
 
 app = Flask(__name__)
-
 app.secret_key = 'supersecretkey'
 
+# SSH and port settings (plaintext), to do: store password encryted
 SSH_PASSWORD = 'PASSWORD OF YOUR HOST USER'
 SSH_HOST = 'IP ADDRESS OF YOUR HOST WHERE YOUR CONTAINERS RUNNING'
 SSH_USER = 'USER OF YOU HOST WHO HAS PRIVILIGE FOR DOCKER'
@@ -41,7 +41,6 @@ def convert_to_mb(value_str):
         num = float(num_part)
     except ValueError:
         return 0.0
-
     first_char = unit[0] if unit else ''
     if first_char == 'K':
         return num / 1024
@@ -54,6 +53,17 @@ def convert_to_mb(value_str):
     else:
         return num
 
+def parse_container_status(status_str):
+    status_str = status_str.strip()
+    if "Paused" in status_str:
+        return "paused"
+    elif status_str.startswith("Up"):
+        return "running"
+    elif status_str.startswith("Exited"):
+        return "stopped"
+    else:
+        return status_str
+
 def parse_docker_stats(output):
     containers = []
     for line in output.strip().split('\n'):
@@ -65,7 +75,6 @@ def parse_docker_stats(output):
             cpu_percent = float(cpu.replace('%', ''))
         except ValueError:
             cpu_percent = 0.0
-
         mem_parts = mem.split('/')
         if len(mem_parts) == 2:
             mem_used, mem_total = mem_parts
@@ -77,10 +86,8 @@ def parse_docker_stats(output):
             mem_used_formatted = f"{used_mb:.1f} MB"
         else:
             used_mb = convert_to_mb(mem.strip())
-            total_mb = 0
             mem_percent = 0
             mem_used_formatted = f"{used_mb:.1f} MB"
-
         containers.append({
             'name': name,
             'cid': cid[:12],
@@ -95,17 +102,6 @@ def parse_docker_stats(output):
         })
     return containers
 
-def parse_container_status(status_str):
-    status_str = status_str.strip()
-    if "Paused" in status_str:
-        return "paused"
-    elif status_str.startswith("Up"):
-        return "running"
-    elif status_str.startswith("Exited"):
-        return "stopped"
-    else:
-        return status_str
-
 def fetch_docker_data():
     command_stats = """
     docker stats --all --no-stream --format "{{.Container}}|{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}|{{.BlockIO}}|{{.PIDs}}"
@@ -116,10 +112,9 @@ def fetch_docker_data():
         output_stats = stdout.read().decode()
         ssh.close()
     except Exception as e:
+        print(f"Error fetching stats: {str(e)}")
         output_stats = ""
-
     containers = parse_docker_stats(output_stats)
-
     command_status = """ docker ps -a --format "{{.ID}}|{{.Status}}" """
     try:
         ssh = get_ssh_connection()
@@ -127,8 +122,8 @@ def fetch_docker_data():
         output_status = stdout.read().decode()
         ssh.close()
     except Exception as e:
+        print(f"Error fetching status: {str(e)}")
         output_status = ""
-
     statuses = {}
     for line in output_status.strip().split('\n'):
         if not line:
@@ -137,17 +132,14 @@ def fetch_docker_data():
         if len(parts) == 2:
             container_id, stat = parts
             statuses[container_id[:12]] = parse_container_status(stat)
-
     for container in containers:
         container['status'] = statuses.get(container['cid'], 'unknown')
-
     max_used = max((c['mem_used_val'] for c in containers), default=0)
     for c in containers:
         if max_used > 0:
             c['mem_bar_percent'] = (c['mem_used_val'] / max_used) * 100
         else:
             c['mem_bar_percent'] = 0
-
     return containers
 
 @app.before_request
@@ -162,8 +154,12 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
+        dark_mode_val = request.form.get('dark_mode')
+        auto_logout_val = request.form.get('auto_logout')
         if username == SSH_USER and password == SSH_PASSWORD:
             session['logged_in'] = True
+            session['dark_mode'] = True if dark_mode_val == 'on' else False
+            session['auto_logout'] = True if auto_logout_val == 'on' else False
             return redirect(url_for('index'))
         else:
             error = "Invalid username or password!"
@@ -176,7 +172,9 @@ def logout():
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html',
+                           dark_mode=session.get('dark_mode', True),
+                           auto_logout=session.get('auto_logout', True))
 
 @app.route('/data')
 def data():
@@ -195,7 +193,7 @@ def manage():
         ssh.exec_command(command)
         ssh.close()
     except Exception as e:
-        pass
+        print(f"Error managing container {action}: {str(e)}")
     return jsonify(success=True)
 
 if __name__ == '__main__':
