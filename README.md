@@ -5,9 +5,9 @@ Docker Monitor is a lightweight Python-based web application that provides real-
 You can access the monitoring dashboard remotely via `http://localhost:PORT`, where `PORT` is the port number you specified during installation.
 
 Use the name and password you provided during installation to log in, which should match the SSH host login name/password.
-![image](https://github.com/user-attachments/assets/8aa38cbd-881b-4182-943f-7b6e192dac4d)
+![image](https://github.com/user-attachments/assets/f9ce68a9-8e4d-4a52-9852-d14fa856b7c0)
 
-![image](https://github.com/user-attachments/assets/d9ec264b-7c1c-42b8-9404-805a10c1267a)
+![image](https://github.com/user-attachments/assets/b4e63d5f-7d25-4b59-b642-8859af36cf3e)
 
 ## Features
 
@@ -21,12 +21,16 @@ Use the name and password you provided during installation to log in, which shou
   - Shows the status of each container (running, paused, stopped) and provides actions for managing containers (start, stop, restart, pause, resume) through a context menu.
 - **Filtering containers by name:**
   - Clicking on 'NAME' in the header row opens a text input field where you can search or filter containers by name.
+    ![image](https://github.com/user-attachments/assets/924e5ee0-2be0-4b58-87c9-f0a625d13f83)
 - **Sorting by resource usage:**
   - Clicking on 'CPU' or 'MEM' in the header row allows you to sort the containers in descending order based on the selected resource usage. Clicking anywhere on the screen resets the display to the default name-based sorting.
+    ![image](https://github.com/user-attachments/assets/abe70645-d1a2-4187-b06d-17bdf812483d)
 - **Remote Docker Host Access:**
   - Uses SSH (via Paramiko) to connect to a Docker host and execute commands for fetching container statistics.
 - **Multiple Instance Support:**
   - The installer dynamically sets the service name and installation directory based on user input, allowing for multiple instances without conflicts.
+- **Auto logout & Dark/Light mode:**
+  - Functions available on the login page.
 - **Simple & Responsive UI:**
   - A minimal web interface built with HTML/CSS for easy monitoring.
 
