@@ -4,11 +4,17 @@
     <meta charset="UTF-8">
     <title>Docker Monitor</title>
     <style>
+        /* dark mode */
         body {
             font-family: 'Courier New', monospace;
             margin: 20px;
             background: #1a1a1a;
             color: #e6f0e6;
+        }
+        /* light mode */
+        body.light-mode {
+            background: #f8f9fa;
+            color: #212529;
         }
         table {
             border-collapse: collapse;
@@ -26,8 +32,15 @@
             z-index: 2;
             cursor: pointer;
         }
+        body.light-mode thead th {
+            background-color: #e9ecef;
+            color: #212529;
+        }
         tr:hover {
             background-color: #003300;
+        }
+        body.light-mode tr:hover {
+            background-color: #dee2e6;
         }
         .progress-container {
             height: 15px;
@@ -37,10 +50,16 @@
             overflow: hidden;
             width: 100%;
         }
+        body.light-mode .progress-container {
+            background: #e9ecef;
+        }
         .progress-bar {
             height: 100%;
             background: #007500;
             transition: width 0.5s ease;
+        }
+        body.light-mode .progress-bar {
+            background: #198754;
         }
         .progress-text {
             position: absolute;
@@ -53,18 +72,26 @@
             font-size: 16px;
             white-space: nowrap;
         }
+        body.light-mode .progress-text {
+            color: #212529;
+        }
         .menu {
             display: none;
             position: absolute;
             background-color: #303030;
             border: 1px solid #444;
-            z-index: 1;
+            z-index: 10;
             padding: 10px;
+        }
+        body.light-mode .menu {
+            background-color: #e9ecef;
+            border-color: #ccc;
+            color: #212529;
         }
         .menu button {
             display: block;
             background: none;
-            color: #e6f0e6;
+            color: inherit;
             border: none;
             padding: 5px 10px;
             cursor: pointer;
@@ -72,9 +99,15 @@
         .menu button:hover {
             background: #444;
         }
+        body.light-mode .menu button:hover {
+            background: #ccc;
+        }
         .running { color: #43b302; }
         .stopped { color: #c21e0c; }
         .paused { color: #c2c20c; }
+        body.light-mode .running { color: #28a745; }
+        body.light-mode .stopped { color: #dc3545; }
+        body.light-mode .paused { color: #ffc107; }
         .logout-header {
             cursor: pointer;
             text-decoration: none;
@@ -84,13 +117,64 @@
             border: none;
             border-radius: 5px;
             transition: background-color 0.3s ease;
+            position: relative;
         }
         .logout-header:hover {
             background-color: darkgreen;
         }
+        #countdown {
+            display: block;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        /* Modal overlay for statistics */
+        #statsModal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.7);
+        }
+        .modal-content {
+            background-color: #2b2b2b;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 1000px;
+        }
+        body.light-mode .modal-content {
+            background-color: #f8f9fa;
+            color: #212529;
+        }
+        .close-modal {
+            float: right;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        .chart-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: space-around;
+        }
+        .chart-box {
+            flex: 1 1 45%;
+            min-width: 300px;
+            height: 300px;
+            position: relative;
+        }
     </style>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
+<body class="{% if not dark_mode %}light-mode{% endif %}">
     <table id="containers-table">
         <thead>
             <tr>
@@ -100,12 +184,33 @@
                 <th style="width: 12%;" onclick="setSort('mem')">MEM</th>
                 <th style="width: 18%;">NET RX/TX</th>
                 <th style="width: 18%;">IO R/W</th>
-                <th style="width: 10%;" onclick="window.location.href='/logout'" class="logout-header">LOGOUT</th>
+                <th style="width: 10%;" onclick="window.location.href='/logout'" class="logout-header">
+                    LOGOUT
+                    {% if auto_logout %}
+                    <span id="countdown">10:00</span>
+                    {% endif %}
+                </th>
             </tr>
         </thead>
         <tbody id="containers-body">
         </tbody>
     </table>
+
+    <!-- Modal overlay for Stats -->
+    <div id="statsModal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeStatistics()">&times;</span>
+            <h2 id="statsTitle">Container Statistics</h2>
+            <div class="chart-container">
+                <div class="chart-box">
+                    <canvas id="cpuChart"></canvas>
+                </div>
+                <div class="chart-box">
+                    <canvas id="memChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script>
         let refreshInterval = null;
@@ -113,17 +218,14 @@
         let openMenuCid = null;
         let filterText = "";
         let sortColumn = "name";
-
-        function getSortValue(container, column) {
-            if (column === "name") {
-                return container.name.toLowerCase();
-            } else if (column === "cpu") {
-                return parseFloat(container.cpu) || 0;
-            } else if (column === "mem") {
-                return parseFloat(container.mem_used_val) || 0;
-            }
-            return container.name.toLowerCase();
-        }
+        let autoLogout = {{ 'true' if auto_logout else 'false' }};
+        let remainingSeconds = 600;
+        let countdownInterval = null;
+        // Statisztikák tárolása minden konténerhez: { cid: [ {time, cpu, mem}, ... ] }
+        let containerStats = {};
+        let cpuChart = null;
+        let memChart = null;
+        let statsModalOpenCid = null;
 
         function startRefresh() {
             if (!refreshInterval) {
@@ -142,7 +244,28 @@
             fetch('/data')
                 .then(response => response.json())
                 .then(data => {
+                    console.log("Fetched data:", data);
+                    if (!Array.isArray(data)) {
+                        console.error("Data is not an array!");
+                        return;
+                    }
                     if (menuOpen) return;
+                    // STATISTICS DATA TIMELINE
+                    let now = new Date();
+                    data.forEach(container => {
+                        let cid = container.cid;
+                        if (!containerStats[cid]) {
+                            containerStats[cid] = [];
+                        }
+                        containerStats[cid].push({
+                            time: now,
+                            cpu: container.cpu,
+                            mem: container.mem_used_val
+                        });
+                        if (containerStats[cid].length > 600) {
+                            containerStats[cid].shift();
+                        }
+                    });
 
                     if (filterText.trim() !== "") {
                         data = data.filter(container =>
@@ -163,8 +286,8 @@
                     const tbody = document.getElementById('containers-body');
                     tbody.innerHTML = data.map(container => {
                         const statusClass = container.status.toLowerCase();
-                        const barWidth = container.mem_bar_percent.toFixed(1) + '%';
-
+                        const barValue = container.mem_bar_percent || 0;
+                        const barWidth = barValue.toFixed(1) + '%';
                         return `
                             <tr>
                                 <td style="position: relative;">
@@ -175,18 +298,19 @@
                                         <button onclick="manageContainer('restart', '${container.cid}')">RESTART</button>
                                         <button onclick="manageContainer('pause', '${container.cid}')">PAUSE</button>
                                         <button onclick="manageContainer('resume', '${container.cid}')">RESUME</button>
+                                        <button onclick="showStatistics('${container.cid}')">STATISTICS</button>
                                     </div>
                                 </td>
                                 <td>${container.cid}</td>
                                 <td>
                                     <div class="progress-container">
-                                        <div class="progress-bar" style="width: ${container.cpu}%;"></div>
+                                        <div class="progress-bar" style="width: ${container.cpu}%"></div>
                                         <span class="progress-text">${container.cpu_display}</span>
                                     </div>
                                 </td>
                                 <td>
                                     <div class="progress-container">
-                                        <div class="progress-bar" style="width: ${barWidth};"></div>
+                                        <div class="progress-bar" style="width: ${barWidth}"></div>
                                         <span class="progress-text">${container.mem}</span>
                                     </div>
                                 </td>
@@ -196,7 +320,35 @@
                             </tr>
                         `;
                     }).join('');
-                });
+                    updateChartsIfOpen();
+                })
+                .catch(err => console.error("Error in updateTable:", err));
+        }
+
+        function updateChartsIfOpen() {
+            if (!statsModalOpenCid) return;
+            if (!cpuChart || !memChart) return;
+            const statsArray = containerStats[statsModalOpenCid] || [];
+            const cpuLabels = statsArray.map(d => formatTime(d.time));
+            const cpuData = statsArray.map(d => d.cpu);
+            const memData = statsArray.map(d => d.mem);
+            cpuChart.data.labels = cpuLabels;
+            cpuChart.data.datasets[0].data = cpuData;
+            cpuChart.update();
+            memChart.data.labels = cpuLabels;
+            memChart.data.datasets[0].data = memData;
+            memChart.update();
+        }
+
+        function getSortValue(container, column) {
+            if (column === "name") {
+                return container.name.toLowerCase();
+            } else if (column === "cpu") {
+                return parseFloat(container.cpu) || 0;
+            } else if (column === "mem") {
+                return parseFloat(container.mem_used_val) || 0;
+            }
+            return container.name.toLowerCase();
         }
 
         function showMenu(event, cid) {
@@ -302,10 +454,128 @@
             if (!e.target.closest('.menu') && !e.target.closest('span[onclick^="showMenu"]')) {
                 hideMenus();
             }
+            if (autoLogout) {
+                resetAutoLogout();
+            }
         });
+
+        // Auto Logout
+        function startAutoLogoutCountdown() {
+            const countdownElem = document.getElementById("countdown");
+            if (!countdownElem) return;
+            countdownInterval = setInterval(() => {
+                remainingSeconds--;
+                if (remainingSeconds < 0) {
+                    window.location.href = '/logout';
+                } else {
+                    updateCountdownText(countdownElem);
+                }
+            }, 1000);
+        }
+        function resetAutoLogout() {
+            remainingSeconds = 600;
+            if (!countdownInterval) {
+                startAutoLogoutCountdown();
+            }
+        }
+        function updateCountdownText(elem) {
+            let mm = Math.floor(remainingSeconds / 60);
+            let ss = remainingSeconds % 60;
+            let mmStr = mm < 10 ? '0' + mm : '' + mm;
+            let ssStr = ss < 10 ? '0' + ss : '' + ss;
+            elem.textContent = mmStr + ':' + ssStr;
+        }
+
+        // STATISTICS MODAL + CHART.JS
+        function showStatistics(cid) {
+            hideMenus();
+            statsModalOpenCid = cid;
+            const modal = document.getElementById("statsModal");
+            modal.style.display = "block";
+            const title = document.getElementById("statsTitle");
+            title.textContent = `Container Statistics - CID: ${cid}`;
+            if (cpuChart) { cpuChart.destroy(); }
+            if (memChart) { memChart.destroy(); }
+            const statsArray = containerStats[cid] || [];
+            const cpuLabels = statsArray.map(d => formatTime(d.time));
+            const cpuData = statsArray.map(d => d.cpu);
+            const memData = statsArray.map(d => d.mem);
+            const cpuCtx = document.getElementById('cpuChart').getContext('2d');
+            cpuChart = new Chart(cpuCtx, {
+                type: 'line',
+                data: {
+                    labels: cpuLabels,
+                    datasets: [{
+                        label: 'CPU (%)',
+                        data: cpuData,
+                        borderColor: 'rgba(75,192,192,1)',
+                        backgroundColor: 'rgba(75,192,192,0.2)',
+                        fill: true,
+                        tension: 0.1,
+                        pointRadius: 0,
+                        pointHoverRadius: 0,
+                        pointHitRadius: 10
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: { display: true, title: { display: true, text: 'Time' } },
+                        y: { min: 0, max: 100, title: { display: true, text: 'CPU Usage (%)' } }
+                    },
+                    plugins: {
+                        tooltip: { enabled: true }
+                    }
+                }
+            });
+            const memCtx = document.getElementById('memChart').getContext('2d');
+            memChart = new Chart(memCtx, {
+                type: 'line',
+                data: {
+                    labels: cpuLabels,
+                    datasets: [{
+                        label: 'Memory (MB)',
+                        data: memData,
+                        borderColor: 'rgba(255,99,132,1)',
+                        backgroundColor: 'rgba(255,99,132,0.2)',
+                        fill: true,
+                        tension: 0.1,
+                        pointRadius: 0,
+                        pointHoverRadius: 0,
+                        pointHitRadius: 10
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: { display: true, title: { display: true, text: 'Time' } },
+                        y: { beginAtZero: true, title: { display: true, text: 'Memory (MB)' } }
+                    },
+                    plugins: {
+                        tooltip: { enabled: true }
+                    }
+                }
+            });
+        }
+
+        function closeStatistics() {
+            document.getElementById("statsModal").style.display = "none";
+            statsModalOpenCid = null;
+        }
+
+        function formatTime(date) {
+            let h = date.getHours();
+            let m = date.getMinutes();
+            let s = date.getSeconds();
+            let hh = (h < 10) ? '0' + h : h;
+            let mm = (m < 10) ? '0' + m : m;
+            let ss = (s < 10) ? '0' + s : s;
+            return hh + ':' + mm + ':' + ss;
+        }
 
         startRefresh();
         updateTable();
+        if (autoLogout) {
+            startAutoLogoutCountdown();
+        }
     </script>
 </body>
 </html>
