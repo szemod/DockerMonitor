@@ -78,6 +78,11 @@ Use the name and password you provided during installation to log in, which shou
 - **SSH Configuration:** Default SSH credentials in `web_ctop_original.py` are overridden during installation with your provided values.
 - **Port Setting:** Configurable via the installer.
 
+
+## The goal of the project
+
+- Create a lightweight dashboard that allows users to view the resource usage of all running or filtered Docker containers on a single screen, sorted by resource usage. This will make it easy to identify containers that are using excessive or abnormal resources, which can impact the performance of other running containers. Also to provide basic intervention options, such as stopping or restarting containers, will be available if needed.
+
 ## License
 
 - MIT License 
