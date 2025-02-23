@@ -28,7 +28,7 @@ Use the name and password you provided during installation to log in, which shou
 - **Remote Docker Host Access:**
   - Uses SSH (via Paramiko) to connect to a Docker host and execute commands for fetching container statistics.
   - Uses CHART.JS to show real & short time history.
-    ![image](https://github.com/user-attachments/assets/6b7ad343-6b9c-4b01-af00-2d9a4120ffbf)
+   ![image](https://github.com/user-attachments/assets/aabe6876-3fef-453d-b734-61220ddd4927)
 - **Multiple Instance Support:**
   - The installer dynamically sets the service name and installation directory based on user input, allowing for multiple instances without conflicts.
 - **Auto logout & Dark/Light mode:**
