@@ -29,7 +29,7 @@ Use the name and password you provided during installation to log in, which shou
 - **Sorting by resource usage:**
   - Clicking on 'CPU' or 'MEM' in the header row allows you to sort the containers in descending order based on the selected resource usage. Clicking anywhere on the screen resets the display to the default name-based sorting.
     ![image](https://github.com/user-attachments/assets/abe70645-d1a2-4187-b06d-17bdf812483d)
-- **Remote Docker Host Access:**
+- **Remote Docker Host Access & Statistics:**
   - Uses SSH (via Paramiko) to connect to a Docker host and execute commands for fetching container statistics.
   - Uses CHART.JS to show real & short time history.
    ![image](https://github.com/user-attachments/assets/aabe6876-3fef-453d-b734-61220ddd4927)
