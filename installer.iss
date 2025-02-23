@@ -28,10 +28,10 @@ Source: "nssm.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Run]
 Filename: "cmd.exe"; Parameters: "/C where python > ""{tmp}\python_path.txt"""; Flags: runhidden
-Filename: "cmd.exe"; Parameters: "/C copy ""{tmp}\web_ctop_original.py"" ""{app}\web_ctop_original.py"""; Flags: runhidden; StatusMsg: "Copying to the web_ctop.py file..."
-Filename: "powershell.exe"; Parameters: "-Command ""Get-Content -Path '{app}\web_ctop_original.py' | Set-Content -Path '{app}\web_ctop.py' -Encoding UTF8"""; Flags: runhidden; StatusMsg: "Resetting to UTF-8 encoding for the web_ctop.py file..."
-Filename: "{app}\nssm.exe"; Parameters: "install ""{code:GetServiceName}"" ""{app}\venv\Scripts\python.exe"" ""{app}\web_ctop.py"""; WorkingDir: "{app}"; Flags: runhidden; StatusMsg: "Installing the DockerMonitor service..."
-Filename: "{app}\nssm.exe"; Parameters: "start ""{code:GetServiceName}"""; Flags: runhidden; StatusMsg: "Starting the DockerMonitor service..."
+Filename: "cmd.exe"; Parameters: "/C copy ""{tmp}\web_ctop_original.py"" ""{app}\web_ctop_original.py"""; Flags: runhidden; StatusMsg: "Copying web_ctop.py file..."
+Filename: "powershell.exe"; Parameters: "-Command ""Get-Content -Path '{app}\web_ctop_original.py' | Set-Content -Path '{app}\web_ctop.py' -Encoding UTF8"""; Flags: runhidden; StatusMsg: "Restoring UTF-8 encoding for web_ctop.py..."
+Filename: "{app}\nssm.exe"; Parameters: "install ""{code:GetServiceName}"" ""{app}\venv\Scripts\python.exe"" ""{app}\web_ctop.py"""; WorkingDir: "{app}"; Flags: runhidden; StatusMsg: "Installing DockerMonitor service..."
+Filename: "{app}\nssm.exe"; Parameters: "start ""{code:GetServiceName}"""; Flags: runhidden; StatusMsg: "Starting DockerMonitor service..."
 
 [UninstallRun]
 Filename: "{app}\nssm.exe"; Parameters: "stop ""{code:GetServiceName}"""; Flags: runhidden; RunOnceId: "StopDockerMonitor"
@@ -42,8 +42,8 @@ var
   SSHHostPage: TInputQueryWizardPage;
   SSHUserPage: TInputQueryWizardPage;
   SSHPasswordPage: TInputQueryWizardPage;
-  PortPage: TInputQueryWizardPage;  
-  ServiceNamePage: TInputQueryWizardPage; 
+  PortPage: TInputQueryWizardPage;  // Új beviteli oldal a port számára
+  ServiceNamePage: TInputQueryWizardPage;  // Új beviteli oldal a szolgáltatás névhez
   PythonExecutablePath: String;
 
 procedure InitializeWizard;
@@ -51,7 +51,7 @@ begin
   ServiceNamePage := CreateInputQueryPage(wpWelcome,
     'Service Name', 'Enter the service name for Docker Monitor',
     'Please provide the name for the Windows Service (default is DockerMonitor).');
-  ServiceNamePage.Add('Service Name:', False); 
+  ServiceNamePage.Add('Service Name:', False);
 
   PortPage := CreateInputQueryPage(wpWelcome,
     'Docker Monitor Port', 'Enter the desired port for Docker Monitor',
@@ -74,35 +74,30 @@ begin
   SSHPasswordPage.Add('Password:', False);
 end;
 
-function GetPythonPath: String;  
+function GetPythonPath: String;
 var
   ResultCode: Integer;
   Lines: TArrayOfString;
 begin
   Result := '';
-
   if Exec('cmd.exe', '/C where python > "' + ExpandConstant('{tmp}\python_path.txt') + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
   begin
-
     if FileExists(ExpandConstant('{tmp}\python_path.txt')) then
     begin
-
       if LoadStringsFromFile(ExpandConstant('{tmp}\python_path.txt'), Lines) then
       begin
-      
         if GetArrayLength(Lines) > 0 then
           Result := Trim(Lines[0]);
       end;
     end;
   end;
-
   if Result = '' then
     MsgBox('Python executable not found. Please ensure Python is installed and added to PATH.', mbError, MB_OK);
 end;
 
 function GetServiceName(Param: String): String;
 begin
-  Result := ServiceNamePage.Values[0];  
+  Result := ServiceNamePage.Values[0];
 end;
 
 procedure ModifyWebCtopFile(FilePath: string);
@@ -118,7 +113,7 @@ begin
         Lines[I] := 'SSH_HOST = ''' + SSHHostPage.Values[0] + '''';
       if Pos('SSH_USER =', Lines[I]) > 0 then
         Lines[I] := 'SSH_USER = ''' + SSHUserPage.Values[0] + '''';
-      if Pos('PORT =', Lines[I]) > 0 then  
+      if Pos('PORT =', Lines[I]) > 0 then
         Lines[I] := 'PORT = ' + PortPage.Values[0];
     end;
     SaveStringsToFile(FilePath, Lines, False);
@@ -129,17 +124,18 @@ procedure CurStepChanged(CurStep: TSetupStep);
 var
   ResultCode: Integer;
 begin
-  if CurStep = ssPostInstall then begin
-
+  if CurStep = ssPostInstall then
+  begin
     ModifyWebCtopFile(ExpandConstant('{app}\web_ctop.py'));
-
     PythonExecutablePath := GetPythonPath();
     if PythonExecutablePath = '' then
-      Exit; 
-
-    if not DirExists(ExpandConstant('{app}\venv')) then begin
-      if Exec(PythonExecutablePath, '-m venv venv', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode) then begin
-        if ResultCode = 0 then begin
+      Exit;
+    if not DirExists(ExpandConstant('{app}\venv')) then
+    begin
+      if Exec(PythonExecutablePath, '-m venv venv', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+      begin
+        if ResultCode = 0 then
+        begin
           Exec(ExpandConstant('{app}\venv\Scripts\pip.exe'), 'install paramiko flask', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
           if ResultCode <> 0 then
             MsgBox('Failed to install required Python packages.', mbError, MB_OK);
@@ -147,10 +143,8 @@ begin
           MsgBox('Failed to create Python virtual environment. Please ensure Python installation is correct.', mbError, MB_OK);
       end;
     end;
-
     if not Exec(ExpandConstant('{app}\nssm.exe'), 'install "' + GetServiceName('') + '" "' + ExpandConstant('{app}\venv\Scripts\python.exe') + '" "' + ExpandConstant('{app}\web_ctop.py') + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
       MsgBox('Failed to install DockerMonitor service.', mbError, MB_OK);
-    
     if not Exec(ExpandConstant('{app}\nssm.exe'), 'start "' + GetServiceName('') + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
       MsgBox('Failed to start DockerMonitor service.', mbError, MB_OK);
   end;
@@ -159,7 +153,9 @@ end;
 procedure CurPageChanged(CurPageID: Integer);
 begin
   if CurPageID = wpFinished then
-    WizardForm.FinishedLabel.Caption := 'Please ensure the latest version of Python is installed. The DockerMonitor service is available here:  http://localhost:' + PortPage.Values[0] + '/';
+    WizardForm.FinishedLabel.Caption :=
+      'Please ensure the latest version of Python is installed. The DockerMonitor service is available here:  http://localhost:' +
+      PortPage.Values[0] + '/';
 end;
 
 function GetDefaultDirName(Param: string): string;
@@ -188,5 +184,5 @@ end;
 
 function InitializeSetup: Boolean;
 begin
-  Result := True; 
+  Result := True;
 end;
