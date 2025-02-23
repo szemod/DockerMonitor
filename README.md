@@ -1,9 +1,5 @@
 # Docker Monitor
 
-## The goal of the project
-
-- Create a lightweight dashboard that allows users to view the resource usage of all running or filtered Docker containers on a single screen, sorted by resource usage. This will make it easy to identify containers that are using excessive or abnormal resources, which can impact the performance of other running containers. Also to provide basic intervention options, such as stopping or restarting containers, will be available if needed.
-
 Docker Monitor is a lightweight Python-based web application that provides real-time monitoring of Docker container resource usage through a web dashboard. Inspired by the command-line tool ctop, it displays essential metrics such as CPU, memory, network I/O, and container status (running, paused, stopped) while also allowing basic container management actions.
 
 You can access the monitoring dashboard remotely via `http://localhost:PORT`, where `PORT` is the port number you specified during installation.
@@ -12,6 +8,10 @@ Use the name and password you provided during installation to log in, which shou
 ![image](https://github.com/user-attachments/assets/f9ce68a9-8e4d-4a52-9852-d14fa856b7c0)
 
 ![image](https://github.com/user-attachments/assets/b4e63d5f-7d25-4b59-b642-8859af36cf3e)
+
+## The goal of the project
+
+- Create a lightweight dashboard that allows users to view the resource usage of all running or filtered Docker containers on a single screen, sorted by resource usage. This will make it easy to identify containers that are using excessive or abnormal resources, which can impact the performance of other running containers. Also to provide basic intervention options, such as stopping or restarting containers, will be available if needed.
 
 ## Features
 
