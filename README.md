@@ -83,11 +83,6 @@ Use the name and password you provided during installation to log in, which shou
 - **SSH Configuration:** Default SSH credentials in `web_ctop_original.py` are overridden during installation with your provided values.
 - **Port Setting:** Configurable via the installer.
 
-## Planned future developments and features.
-
-- Encrypted password management,
-- quick BASH/ASH console for the containers.
-  
 ## License
 
 - MIT License 
@@ -99,4 +94,7 @@ Use the name and password you provided during installation to log in, which shou
 - **NSSM:** Used for managing the Docker Monitor service on Windows.
 - Inspired by the functionality of ctop for real-time Docker monitoring.
 
+## Planned future developments and features.
 
+- Encrypted password management,
+- quick BASH/ASH console for the containers.
