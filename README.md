@@ -49,7 +49,7 @@ Use the name and password you provided during installation to log in, which shou
 - **Docker Host:** Access to a Docker host (local or remote) with SSH privileges to run Docker commands.
 - **Inno Setup** (Optional): Required only if you plan to rebuild/modify the installer.
 
-### Installation Steps
+### Installation Steps (on Windows systems)
 
 1. **Run the Installer:**
    - Execute the generated `DockerMonitorInstaller.exe`.
