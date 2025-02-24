@@ -16,34 +16,42 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=userdocs: Inno Setup Output
 UsePreviousLanguage=no
+CloseApplications=no
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
-Source: "web_ctop_original.py"; DestDir: "{tmp}"; Flags: ignoreversion
+Source: "web_ctop_original.py"; DestDir: "{app}"; Flags: ignoreversion
 Source: "templates\index.html"; DestDir: "{app}\templates"; Flags: ignoreversion
 Source: "templates\login.html"; DestDir: "{app}\templates"; Flags: ignoreversion
 Source: "nssm.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Run]
 Filename: "cmd.exe"; Parameters: "/C where python > ""{tmp}\python_path.txt"""; Flags: runhidden
-Filename: "cmd.exe"; Parameters: "/C copy ""{tmp}\web_ctop_original.py"" ""{app}\web_ctop_original.py"""; Flags: runhidden; StatusMsg: "Copying web_ctop.py file..."
+Filename: "cmd.exe"; Parameters: "/C copy ""{app}\web_ctop_original.py"" ""{app}\web_ctop.py"""; Flags: runhidden; StatusMsg: "Copying web_ctop.py file..."
 Filename: "powershell.exe"; Parameters: "-Command ""Get-Content -Path '{app}\web_ctop_original.py' | Set-Content -Path '{app}\web_ctop.py' -Encoding UTF8"""; Flags: runhidden; StatusMsg: "Restoring UTF-8 encoding for web_ctop.py..."
 Filename: "{app}\nssm.exe"; Parameters: "install ""{code:GetServiceName}"" ""{app}\venv\Scripts\python.exe"" ""{app}\web_ctop.py"""; WorkingDir: "{app}"; Flags: runhidden; StatusMsg: "Installing DockerMonitor service..."
 Filename: "{app}\nssm.exe"; Parameters: "start ""{code:GetServiceName}"""; Flags: runhidden; StatusMsg: "Starting DockerMonitor service..."
+Filename: "http://localhost:{code:GetPort}/"; Description: "Open Docker Monitor"; Flags: shellexec postinstall nowait
 
 [UninstallRun]
 Filename: "{app}\nssm.exe"; Parameters: "stop ""{code:GetServiceName}"""; Flags: runhidden; RunOnceId: "StopDockerMonitor"
 Filename: "{app}\nssm.exe"; Parameters: "remove ""{code:GetServiceName}"" confirm"; Flags: runhidden; RunOnceId: "RemoveDockerMonitor"
+
+[UninstallDelete]
+Type: filesandordirs; Name: "{app}\venv"
+Type: files; Name: "{app}\web_ctop.py"
+Type: files; Name: "{app}\web_ctop_original.py"
+Type: filesandordirs; Name: "{app}"
 
 [Code]
 var
   SSHHostPage: TInputQueryWizardPage;
   SSHUserPage: TInputQueryWizardPage;
   SSHPasswordPage: TInputQueryWizardPage;
-  PortPage: TInputQueryWizardPage;  // Új beviteli oldal a port számára
-  ServiceNamePage: TInputQueryWizardPage;  // Új beviteli oldal a szolgáltatás névhez
+  PortPage: TInputQueryWizardPage;
+  ServiceNamePage: TInputQueryWizardPage;
   PythonExecutablePath: String;
 
 procedure InitializeWizard;
@@ -53,12 +61,12 @@ begin
     'Please provide the name for the Windows Service (default is DockerMonitor).');
   ServiceNamePage.Add('Service Name:', False);
 
-  PortPage := CreateInputQueryPage(wpWelcome,
+  PortPage := CreateInputQueryPage(ServiceNamePage.ID,
     'Docker Monitor Port', 'Enter the desired port for Docker Monitor',
     'Please provide the port on which the Docker Monitor service should run.');
   PortPage.Add('Desired Port (e.g. 5434):', False);
 
-  SSHHostPage := CreateInputQueryPage(wpWelcome,
+  SSHHostPage := CreateInputQueryPage(PortPage.ID,
     'Docker SSH Connection Details', 'Enter the Docker host SSH connection details',
     'Please provide the IP address, username, and password for the Docker host SSH connection.');
   SSHHostPage.Add('SSH Host IP Address:', False);
@@ -98,6 +106,11 @@ end;
 function GetServiceName(Param: String): String;
 begin
   Result := ServiceNamePage.Values[0];
+end;
+
+function GetPort(Param: String): String;
+begin
+  Result := PortPage.Values[0];
 end;
 
 procedure ModifyWebCtopFile(FilePath: string);
@@ -143,19 +156,24 @@ begin
           MsgBox('Failed to create Python virtual environment. Please ensure Python installation is correct.', mbError, MB_OK);
       end;
     end;
+
     if not Exec(ExpandConstant('{app}\nssm.exe'), 'install "' + GetServiceName('') + '" "' + ExpandConstant('{app}\venv\Scripts\python.exe') + '" "' + ExpandConstant('{app}\web_ctop.py') + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
       MsgBox('Failed to install DockerMonitor service.', mbError, MB_OK);
+    
     if not Exec(ExpandConstant('{app}\nssm.exe'), 'start "' + GetServiceName('') + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
-      MsgBox('Failed to start DockerMonitor service.', mbError, MB_OK);
+      MsgBox('Failed to start DockerMonitor service.', mbError, MB_OK);  
   end;
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
+var
+  ResultCode: Integer;
 begin
   if CurPageID = wpFinished then
-    WizardForm.FinishedLabel.Caption :=
-      'Please ensure the latest version of Python is installed. The DockerMonitor service is available here:  http://localhost:' +
-      PortPage.Values[0] + '/';
+  begin
+    ShellExec('open', 'http://localhost:' + PortPage.Values[0], '', '', SW_SHOW, ewNoWait, ResultCode);
+    WizardForm.Close;
+  end;
 end;
 
 function GetDefaultDirName(Param: string): string;
