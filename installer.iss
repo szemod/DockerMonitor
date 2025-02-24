@@ -58,13 +58,15 @@ procedure InitializeWizard;
 begin
   ServiceNamePage := CreateInputQueryPage(wpWelcome,
     'Service Name', 'Enter the service name for Docker Monitor',
-    'Please provide the name for the Windows Service (default is DockerMonitor).');
-  ServiceNamePage.Add('Service Name:', False);
+    'Please provide the name for the Windows Service.');
+  ServiceNamePage.Add('Service Name (e.g. DockerMonitor):', False);
+  ServiceNamePage.Values[0] := 'DockerMonitor';
 
   PortPage := CreateInputQueryPage(ServiceNamePage.ID,
     'Docker Monitor Port', 'Enter the desired port for Docker Monitor',
     'Please provide the port on which the Docker Monitor service should run.');
   PortPage.Add('Desired Port (e.g. 5434):', False);
+  PortPage.Values[0] := '5434';
 
   SSHHostPage := CreateInputQueryPage(PortPage.ID,
     'Docker SSH Connection Details', 'Enter the Docker host SSH connection details',
@@ -74,12 +76,12 @@ begin
   SSHUserPage := CreateInputQueryPage(SSHHostPage.ID,
     'SSH User', 'Enter the SSH username',
     'Please enter the username for the SSH connection.');
-  SSHUserPage.Add('Username:', False);
+  SSHUserPage.Add('Username (need sudo privileges):', False);
 
   SSHPasswordPage := CreateInputQueryPage(SSHUserPage.ID,
-    'SSH Password', 'Enter the SSH password',
-    'Please enter the password for the SSH user.');
-  SSHPasswordPage.Add('Password:', False);
+    'SSH/Sudo Password', 'Enter the SSH and sudo password',
+    'This password will be used for both SSH login and sudo privileges.');
+  SSHPasswordPage.Add('Password:', True);
 end;
 
 function GetPythonPath: String;
@@ -165,23 +167,12 @@ begin
   end;
 end;
 
-procedure CurPageChanged(CurPageID: Integer);
-var
-  ResultCode: Integer;
-begin
-  if CurPageID = wpFinished then
-  begin
-    ShellExec('open', 'http://localhost:' + PortPage.Values[0], '', '', SW_SHOW, ewNoWait, ResultCode);
-    WizardForm.Close;
-  end;
-end;
-
 function GetDefaultDirName(Param: string): string;
 begin
   if Assigned(ServiceNamePage) and (Trim(ServiceNamePage.Values[0]) <> '') then
-    Result := 'C:\Apps\DockerMonitor_' + ServiceNamePage.Values[0]
+    Result := ExpandConstant('{pf}') + '\DockerMonitor_' + ServiceNamePage.Values[0]
   else
-    Result := 'C:\Apps\DockerMonitor';
+    Result := ExpandConstant('{pf}') + '\DockerMonitor';
 end;
 
 function GetAppId(Param: string): string;
