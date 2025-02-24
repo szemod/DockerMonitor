@@ -135,6 +135,16 @@ begin
   end;
 end;
 
+procedure CurPageChanged(CurPage: Integer);
+begin
+  if CurPage = wpSelectDir then begin
+    if Assigned(ServiceNamePage) and (Trim(ServiceNamePage.Values[0]) <> '') then
+      WizardForm.DirEdit.Text := ExpandConstant('C:\Apps\' + ServiceNamePage.Values[0])
+    else
+      WizardForm.DirEdit.Text := ExpandConstant('C:\Apps\DockerMonitor');
+  end;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   ResultCode: Integer;
@@ -170,7 +180,7 @@ end;
 function GetDefaultDirName(Param: string): string;
 begin
   if Assigned(ServiceNamePage) and (Trim(ServiceNamePage.Values[0]) <> '') then
-    Result := 'C:\Apps\DockerMonitor_' + ServiceNamePage.Values[0]
+    Result := 'C:\Apps\' + ServiceNamePage.Values[0]
   else
     Result := 'C:\Apps\DockerMonitor';
 end;
