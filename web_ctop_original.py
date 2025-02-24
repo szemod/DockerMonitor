@@ -7,21 +7,33 @@ from flask import Flask, render_template, jsonify, request, session, redirect, u
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'
 
-# SSH and port settings (plaintext), to do: store password encryted
-SSH_PASSWORD = 'PASSWORD OF YOUR HOST USER'
-SSH_HOST = 'IP ADDRESS OF YOUR HOST WHERE YOUR CONTAINERS RUNNING'
-SSH_USER = 'USER OF YOU HOST WHO HAS PRIVILIGE FOR DOCKER'
+# SSH settings
+SSH_PASSWORD = 'PASSWORD'  # Sudo
+SSH_HOST = 'HOST_IP'
+SSH_USER = 'USERNAME'
 PORT = 5434
-
-def set_port(port):
-    global PORT
-    PORT = port
 
 def get_ssh_connection():
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(SSH_HOST, username=SSH_USER, password=SSH_PASSWORD)
     return ssh
+
+def execute_sudo_command(command):
+    try:
+        ssh = get_ssh_connection()
+        stdin, stdout, stderr = ssh.exec_command(f"sudo -S -p '' {command}")
+        stdin.write(SSH_PASSWORD + '\n')
+        stdin.flush()
+        output = stdout.read().decode()
+        error = stderr.read().decode()
+        ssh.close()
+        if error and "password" not in error:
+            print(f"SSH Error: {error}")
+        return output
+    except Exception as e:
+        print(f"SSH Connection Error: {str(e)}")
+        return ""
 
 def convert_to_mb(value_str):
     value_str = value_str.strip()
@@ -103,27 +115,18 @@ def parse_docker_stats(output):
     return containers
 
 def fetch_docker_data():
-    command_stats = """
-    docker stats --all --no-stream --format "{{.Container}}|{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}|{{.BlockIO}}|{{.PIDs}}"
-    """
+    command_stats = "docker stats --all --no-stream --format \"{{.Container}}|{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}|{{.BlockIO}}|{{.PIDs}}\""
+    command_status = "docker ps -a --format \"{{.ID}}|{{.Status}}\""
+
     try:
-        ssh = get_ssh_connection()
-        stdin, stdout, stderr = ssh.exec_command(command_stats)
-        output_stats = stdout.read().decode()
-        ssh.close()
+        output_stats = execute_sudo_command(command_stats)
+        output_status = execute_sudo_command(command_status)
     except Exception as e:
-        print(f"Error fetching stats: {str(e)}")
+        print(f"Error executing commands: {str(e)}")
         output_stats = ""
-    containers = parse_docker_stats(output_stats)
-    command_status = """ docker ps -a --format "{{.ID}}|{{.Status}}" """
-    try:
-        ssh = get_ssh_connection()
-        stdin, stdout, stderr = ssh.exec_command(command_status)
-        output_status = stdout.read().decode()
-        ssh.close()
-    except Exception as e:
-        print(f"Error fetching status: {str(e)}")
         output_status = ""
+
+    containers = parse_docker_stats(output_stats)
     statuses = {}
     for line in output_status.strip().split('\n'):
         if not line:
@@ -189,9 +192,7 @@ def manage():
         action = 'unpause'
     command = f"docker {action} {container_id}"
     try:
-        ssh = get_ssh_connection()
-        ssh.exec_command(command)
-        ssh.close()
+        execute_sudo_command(command)
     except Exception as e:
         print(f"Error managing container {action}: {str(e)}")
     return jsonify(success=True)
