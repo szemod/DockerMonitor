@@ -80,7 +80,7 @@ Use the name and password you provided during installation to log in, which shou
 
 ### Customization
 
-- **SSH Configuration:** Default SSH credentials in `web_ctop_original.py` are overridden during installation with your provided values.
+- **SSH Configuration:** Default SSH credentials in `web_ctop.py` are overridden during installation with your provided values.
 - **Port Setting:** Configurable via the installer.
 
 ## License
