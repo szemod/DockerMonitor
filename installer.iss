@@ -170,9 +170,9 @@ end;
 function GetDefaultDirName(Param: string): string;
 begin
   if Assigned(ServiceNamePage) and (Trim(ServiceNamePage.Values[0]) <> '') then
-    Result := ExpandConstant('{pf}') + '\DockerMonitor_' + ServiceNamePage.Values[0]
+    Result := 'C:\Apps\DockerMonitor_' + ServiceNamePage.Values[0]
   else
-    Result := ExpandConstant('{pf}') + '\DockerMonitor';
+    Result := 'C:\Apps\DockerMonitor';
 end;
 
 function GetAppId(Param: string): string;
