@@ -13,27 +13,15 @@ SSH_HOST = 'HOST_IP'
 SSH_USER = 'USERNAME'
 PORT = 5434
 
+def set_port(port):
+    global PORT
+    PORT = port
+
 def get_ssh_connection():
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(SSH_HOST, username=SSH_USER, password=SSH_PASSWORD)
     return ssh
-
-def execute_sudo_command(command):
-    try:
-        ssh = get_ssh_connection()
-        stdin, stdout, stderr = ssh.exec_command(f"sudo -S -p '' {command}")
-        stdin.write(SSH_PASSWORD + '\n')
-        stdin.flush()
-        output = stdout.read().decode()
-        error = stderr.read().decode()
-        ssh.close()
-        if error and "password" not in error:
-            print(f"SSH Error: {error}")
-        return output
-    except Exception as e:
-        print(f"SSH Connection Error: {str(e)}")
-        return ""
 
 def convert_to_mb(value_str):
     value_str = value_str.strip()
@@ -115,18 +103,27 @@ def parse_docker_stats(output):
     return containers
 
 def fetch_docker_data():
-    command_stats = "docker stats --all --no-stream --format \"{{.Container}}|{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}|{{.BlockIO}}|{{.PIDs}}\""
-    command_status = "docker ps -a --format \"{{.ID}}|{{.Status}}\""
-
+    command_stats = """
+    docker stats --all --no-stream --format "{{.Container}}|{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}|{{.BlockIO}}|{{.PIDs}}"
+    """
     try:
-        output_stats = execute_sudo_command(command_stats)
-        output_status = execute_sudo_command(command_status)
+        ssh = get_ssh_connection()
+        stdin, stdout, stderr = ssh.exec_command(command_stats)
+        output_stats = stdout.read().decode()
+        ssh.close()
     except Exception as e:
-        print(f"Error executing commands: {str(e)}")
+        print(f"Error fetching stats: {str(e)}")
         output_stats = ""
-        output_status = ""
-
     containers = parse_docker_stats(output_stats)
+    command_status = """ docker ps -a --format "{{.ID}}|{{.Status}}" """
+    try:
+        ssh = get_ssh_connection()
+        stdin, stdout, stderr = ssh.exec_command(command_status)
+        output_status = stdout.read().decode()
+        ssh.close()
+    except Exception as e:
+        print(f"Error fetching status: {str(e)}")
+        output_status = ""
     statuses = {}
     for line in output_status.strip().split('\n'):
         if not line:
@@ -192,10 +189,39 @@ def manage():
         action = 'unpause'
     command = f"docker {action} {container_id}"
     try:
-        execute_sudo_command(command)
+        ssh = get_ssh_connection()
+        ssh.exec_command(command)
+        ssh.close()
     except Exception as e:
         print(f"Error managing container {action}: {str(e)}")
     return jsonify(success=True)
+
+@app.route('/logs')
+def logs():
+    cid_trunc = request.args.get('cid')
+    if not cid_trunc:
+        return jsonify(success=False, error="No container id provided")
+    try:
+        ssh = get_ssh_connection()
+        # Lekérjük az összes konténer teljes ID-ját (futó és leállított)
+        stdin, stdout, stderr = ssh.exec_command("docker ps -a -q --no-trunc")
+        full_ids = stdout.read().decode().strip().splitlines()
+        ssh.close()
+        full_id = None
+        for fid in full_ids:
+            if fid.startswith(cid_trunc):
+                full_id = fid
+                break
+        if full_id is None:
+            full_id = cid_trunc  # fallback
+        command = f"docker logs --tail 100 {full_id} 2>&1"
+        ssh = get_ssh_connection()
+        stdin, stdout, stderr = ssh.exec_command(command)
+        logs_output = stdout.read().decode() + stderr.read().decode()
+        ssh.close()
+    except Exception as e:
+        logs_output = f"Error fetching logs: {str(e)}"
+    return jsonify(logs=logs_output)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT)
