@@ -203,7 +203,7 @@ def logs():
         return jsonify(success=False, error="No container id provided")
     try:
         ssh = get_ssh_connection()
-        # Lekérjük az összes konténer teljes ID-ját (futó és leállított)
+        # query all containers ID (not just running containers!)
         stdin, stdout, stderr = ssh.exec_command("docker ps -a -q --no-trunc")
         full_ids = stdout.read().decode().strip().splitlines()
         ssh.close()
