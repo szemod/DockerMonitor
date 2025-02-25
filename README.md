@@ -28,7 +28,7 @@ Use the name and password you provided during installation to log in, which shou
     ![image](https://github.com/user-attachments/assets/87ae79f6-e6af-4cdc-a6a4-e15c0110fec0)
 - **Filtering containers by name:**
   - Clicking on 'NAME' in the header row opens a text input field where you can search or filter containers by name.
-    ![image](https://github.com/user-attachments/assets/924e5ee0-2be0-4b58-87c9-f0a625d13f83)
+    ![image](https://github.com/user-attachments/assets/997ac9e2-88e5-4246-8261-b21bef0d657a)
 - **Sorting by resource usage:**
   - Clicking on 'CPU' or 'MEM' in the header row allows you to sort the containers in descending order based on the selected resource usage. Clicking anywhere on the screen resets the display to the default name-based sorting.
    ![image](https://github.com/user-attachments/assets/8cb33330-f211-4b5f-8cde-8cb510132b5f)
