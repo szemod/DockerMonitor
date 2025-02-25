@@ -1,4 +1,4 @@
-# Docker Monitor
+# Docker Monitor (Windows version)
 
 Docker Monitor is a lightweight Python-based web application that provides real-time monitoring of Docker container resource usage through a web dashboard. Inspired by the command-line tool ctop, it displays essential metrics such as CPU, memory, network I/O, and container status (running, paused, stopped) while also allowing basic container management actions.
 
