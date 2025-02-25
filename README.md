@@ -31,7 +31,7 @@ Use the name and password you provided during installation to log in, which shou
     ![image](https://github.com/user-attachments/assets/924e5ee0-2be0-4b58-87c9-f0a625d13f83)
 - **Sorting by resource usage:**
   - Clicking on 'CPU' or 'MEM' in the header row allows you to sort the containers in descending order based on the selected resource usage. Clicking anywhere on the screen resets the display to the default name-based sorting.
-    ![image](https://github.com/user-attachments/assets/abe70645-d1a2-4187-b06d-17bdf812483d)
+   ![image](https://github.com/user-attachments/assets/8cb33330-f211-4b5f-8cde-8cb510132b5f)
 - **Remote Docker Host Access & Statistics:**
   - Uses SSH (via Paramiko) to connect to a Docker host and execute commands for fetching container statistics.
   - Uses CHART.JS to show real & short time history.
