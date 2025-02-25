@@ -7,7 +7,7 @@ You can access the monitoring dashboard remotely via `http://localhost:PORT`, wh
 Use the name and password you provided during installation to log in, which should match the SSH host login name/password.
 ![image](https://github.com/user-attachments/assets/f9ce68a9-8e4d-4a52-9852-d14fa856b7c0)
 
-![image](https://github.com/user-attachments/assets/b4e63d5f-7d25-4b59-b642-8859af36cf3e)
+![image](https://github.com/user-attachments/assets/b0ffdff0-0469-415c-ab5d-6ef3673adc95)
 
 ## The goal of the project
 
@@ -23,6 +23,9 @@ Use the name and password you provided during installation to log in, which shou
     - I/O statistics
 - **Container Status & Management:**
   - Shows the status of each container (running, paused, stopped) and provides actions for managing containers (start, stop, restart, pause, resume) through a context menu.
+- **Inspect the container logs:**
+  - The simple view of container logs, which updates every 3 seconds, allows capturing log entries and errors that occur in the container.
+    ![image](https://github.com/user-attachments/assets/87ae79f6-e6af-4cdc-a6a4-e15c0110fec0)
 - **Filtering containers by name:**
   - Clicking on 'NAME' in the header row opens a text input field where you can search or filter containers by name.
     ![image](https://github.com/user-attachments/assets/924e5ee0-2be0-4b58-87c9-f0a625d13f83)
@@ -97,4 +100,3 @@ Use the name and password you provided during installation to log in, which shou
 ## Planned future developments and features.
 
 - Encrypted password management,
-- quick BASH/ASH console for the containers.
