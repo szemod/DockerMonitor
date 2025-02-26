@@ -23,14 +23,17 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
 Source: "web_ctop_original.py"; DestDir: "{app}"; Flags: ignoreversion
+Source: "config_original.py"; DestDir: "{app}"; Flags: ignoreversion
 Source: "templates\index.html"; DestDir: "{app}\templates"; Flags: ignoreversion
 Source: "templates\login.html"; DestDir: "{app}\templates"; Flags: ignoreversion
+Source: "templates\setup.html"; DestDir: "{app}\templates"; Flags: ignoreversion
 Source: "nssm.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Run]
 Filename: "cmd.exe"; Parameters: "/C where python > ""{tmp}\python_path.txt"""; Flags: runhidden
 Filename: "cmd.exe"; Parameters: "/C copy ""{app}\web_ctop_original.py"" ""{app}\web_ctop.py"""; Flags: runhidden; StatusMsg: "Copying web_ctop.py file..."
 Filename: "powershell.exe"; Parameters: "-Command ""Get-Content -Path '{app}\web_ctop_original.py' | Set-Content -Path '{app}\web_ctop.py' -Encoding UTF8"""; Flags: runhidden; StatusMsg: "Restoring UTF-8 encoding for web_ctop.py..."
+Filename: "powershell.exe"; Parameters: "-Command ""Get-Content -Path '{app}\config_original.py' | Set-Content -Path '{app}\config.py' -Encoding UTF8"""; Flags: runhidden; StatusMsg: "Restoring UTF-8 encoding for config.py..."
 Filename: "{app}\nssm.exe"; Parameters: "install ""{code:GetServiceName}"" ""{app}\venv\Scripts\python.exe"" ""{app}\web_ctop.py"""; WorkingDir: "{app}"; Flags: runhidden; StatusMsg: "Installing DockerMonitor service..."
 Filename: "{app}\nssm.exe"; Parameters: "start ""{code:GetServiceName}"""; Flags: runhidden; StatusMsg: "Starting DockerMonitor service..."
 Filename: "http://localhost:{code:GetPort}/"; Description: "Open Docker Monitor"; Flags: shellexec postinstall nowait
@@ -43,6 +46,8 @@ Filename: "{app}\nssm.exe"; Parameters: "remove ""{code:GetServiceName}"" confir
 Type: filesandordirs; Name: "{app}\venv"
 Type: files; Name: "{app}\web_ctop.py"
 Type: files; Name: "{app}\web_ctop_original.py"
+Type: files; Name: "{app}\config.py"
+Type: files; Name: "{app}\config_original.py"
 Type: filesandordirs; Name: "{app}"
 
 [Code]
@@ -115,7 +120,7 @@ begin
   Result := PortPage.Values[0];
 end;
 
-procedure ModifyWebCtopFile(FilePath: string);
+procedure ModifyConfigFile(FilePath: string);
 var
   Lines: TArrayOfString;
   I: Integer;
@@ -151,7 +156,7 @@ var
 begin
   if CurStep = ssPostInstall then
   begin
-    ModifyWebCtopFile(ExpandConstant('{app}\web_ctop.py'));
+    ModifyConfigFile(ExpandConstant('{app}\config.py'));
     PythonExecutablePath := GetPythonPath();
     if PythonExecutablePath = '' then
       Exit;
