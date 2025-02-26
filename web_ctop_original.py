@@ -1,26 +1,63 @@
-# -*- coding: utf-8 -*-
+import warnings
+try:
+    from cryptography.utils import CryptographyDeprecationWarning
+except ImportError:
+    CryptographyDeprecationWarning = DeprecationWarning
 
+warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
+
+import os
 import time
 import paramiko
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for
+from config import PORT
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'
 
-# SSH settings
-SSH_PASSWORD = 'PASSWORD'  # Sudo
-SSH_HOST = 'HOST_IP'
-SSH_USER = 'USERNAME'
-PORT = 5434
+def is_configured():
+    """
+    Checks if any of the SSH details are provided in config.py.
+    """
+    try:
+        with open('config.py', 'r') as f:
+            config_content = f.read()
+        config = {}
+        exec(config_content, config)
+        ssh_host = config.get('SSH_HOST', '')
+        ssh_user = config.get('SSH_USER', '')
+        ssh_password = config.get('SSH_PASSWORD', '')
+        return bool(ssh_host and ssh_user and ssh_password)
+    except Exception as e:
+        print(f"Error reading configuration: {e}")
+        return False
 
-def set_port(port):
-    global PORT
-    PORT = port
+def get_ssh_credentials():
+    """
+    Reads the contents of the config.py file and returns the SSH settings.
+    """
+    try:
+        with open('config.py', 'r') as f:
+            config_content = f.read()
+        config = {}
+        exec(config_content, config)
+        return config.get('SSH_PASSWORD'), config.get('SSH_HOST'), config.get('SSH_USER')
+    except Exception as e:
+        print(f"Error reading config: {e}")
+        return None, None, None
 
 def get_ssh_connection():
+    SSH_PASSWORD, SSH_HOST, SSH_USER = get_ssh_credentials()
+    if not all([SSH_PASSWORD, SSH_HOST, SSH_USER]):
+        raise Exception("SSH credentials not configured properly.")
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(SSH_HOST, username=SSH_USER, password=SSH_PASSWORD)
+    try:
+        ssh.connect(SSH_HOST, username=SSH_USER, password=SSH_PASSWORD)
+    except (paramiko.ssh_exception.NoValidConnectionsError,
+            paramiko.ssh_exception.AuthenticationException) as e:
+        print(f"SSH connection error: {e}")
+        raise
     return ssh
 
 def convert_to_mb(value_str):
@@ -106,24 +143,35 @@ def fetch_docker_data():
     command_stats = """
     docker stats --all --no-stream --format "{{.Container}}|{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}|{{.BlockIO}}|{{.PIDs}}"
     """
+
     try:
         ssh = get_ssh_connection()
+
+        # Ping the host before executing docker command
+        stdin, stdout, stderr = ssh.exec_command("ping -c 1 " + ssh.get_transport().getpeername()[0])
+        if stdout.read().decode().strip() == "":
+            raise Exception("Ping to SSH host failed, check the connection.")
+
         stdin, stdout, stderr = ssh.exec_command(command_stats)
         output_stats = stdout.read().decode()
         ssh.close()
+
     except Exception as e:
         print(f"Error fetching stats: {str(e)}")
         output_stats = ""
+
     containers = parse_docker_stats(output_stats)
+
     command_status = """ docker ps -a --format "{{.ID}}|{{.Status}}" """
     try:
-        ssh = get_ssh_connection()
+        ssh = get_ssh_connection()  # Creating a new SSH connection for status command
         stdin, stdout, stderr = ssh.exec_command(command_status)
         output_status = stdout.read().decode()
         ssh.close()
     except Exception as e:
         print(f"Error fetching status: {str(e)}")
         output_status = ""
+
     statuses = {}
     for line in output_status.strip().split('\n'):
         if not line:
@@ -132,34 +180,63 @@ def fetch_docker_data():
         if len(parts) == 2:
             container_id, stat = parts
             statuses[container_id[:12]] = parse_container_status(stat)
+
     for container in containers:
         container['status'] = statuses.get(container['cid'], 'unknown')
+
     max_used = max((c['mem_used_val'] for c in containers), default=0)
     for c in containers:
         if max_used > 0:
             c['mem_bar_percent'] = (c['mem_used_val'] / max_used) * 100
         else:
             c['mem_bar_percent'] = 0
+
     return containers
 
 @app.before_request
 def require_login():
-    if request.endpoint not in ['login', 'static']:
+    if request.endpoint not in ['setup', 'static'] and not is_configured():
+        return redirect(url_for('setup'))
+    if request.endpoint not in ['login', 'setup', 'static']:
         if not session.get('logged_in'):
             return redirect(url_for('login'))
+
+@app.route('/setup', methods=['GET', 'POST'])
+def setup():
+    message = None
+    error = None
+    if request.method == 'POST':
+        ssh_host = request.form.get('ssh_host')
+        ssh_user = request.form.get('ssh_user')
+        ssh_password = request.form.get('ssh_password')
+        if not ssh_host or not ssh_user or not ssh_password:
+            error = "All fields must be filled out!"
+        else:
+            try:
+                with open('config.py', 'w') as f:
+                    f.write(f"SSH_HOST = '{ssh_host}'\n")
+                    f.write(f"SSH_USER = '{ssh_user}'\n")
+                    f.write(f"SSH_PASSWORD = '{ssh_password}'\n")
+                    f.write("PORT = 5434\n")
+                message = "SSH settings saved. Please log in."
+                return redirect(url_for('login'))
+            except Exception as e:
+                error = "An error occurred while saving the configuration!"
+    return render_template('setup.html', message=message, error=error)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
+    if not is_configured():
+        return redirect(url_for('setup'))
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        dark_mode_val = request.form.get('dark_mode')
-        auto_logout_val = request.form.get('auto_logout')
-        if username == SSH_USER and password == SSH_PASSWORD:
+        stored_ssh_password, stored_ssh_host, stored_ssh_user = get_ssh_credentials()
+        if username == stored_ssh_user and password == stored_ssh_password:
             session['logged_in'] = True
-            session['dark_mode'] = True if dark_mode_val == 'on' else False
-            session['auto_logout'] = True if auto_logout_val == 'on' else False
+            session['dark_mode'] = True if request.form.get('dark_mode') == 'on' else False
+            session['auto_logout'] = True if request.form.get('auto_logout') == 'on' else False
             return redirect(url_for('index'))
         else:
             error = "Invalid username or password!"
@@ -203,7 +280,6 @@ def logs():
         return jsonify(success=False, error="No container id provided")
     try:
         ssh = get_ssh_connection()
-        # query all containers ID (not just running containers!)
         stdin, stdout, stderr = ssh.exec_command("docker ps -a -q --no-trunc")
         full_ids = stdout.read().decode().strip().splitlines()
         ssh.close()
