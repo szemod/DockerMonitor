@@ -5,7 +5,7 @@ Docker Monitor is a lightweight Python-based web application that provides real-
 You can access the monitoring dashboard remotely via `http://localhost:PORT`, where `PORT` is the port number you specified during installation.
 
 Use the name and password you provided during installation to log in, which should match the SSH host login name/password.
-![image](https://github.com/user-attachments/assets/f9ce68a9-8e4d-4a52-9852-d14fa856b7c0)
+![image](https://github.com/user-attachments/assets/1715c29c-a863-4455-8cba-cf8504f1bb1d)
 
 ![image](https://github.com/user-attachments/assets/b0ffdff0-0469-415c-ab5d-6ef3673adc95)
 
