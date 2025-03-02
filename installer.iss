@@ -27,6 +27,11 @@ Source: "config_original.py"; DestDir: "{app}"; Flags: ignoreversion
 Source: "templates\index.html"; DestDir: "{app}\templates"; Flags: ignoreversion
 Source: "templates\login.html"; DestDir: "{app}\templates"; Flags: ignoreversion
 Source: "templates\setup.html"; DestDir: "{app}\templates"; Flags: ignoreversion
+Source: "templates\mobile.html"; DestDir: "{app}\templates"; Flags: ignoreversion
+Source: "templates\service-worker.js"; DestDir: "{app}\templates"; Flags: ignoreversion
+Source: "templates\manifest.json"; DestDir: "{app}\templates"; Flags: ignoreversion
+Source: "templates\favicon.icon"; DestDir: "{app}\templates"; Flags: ignoreversion
+Source: "templates\favicon.png"; DestDir: "{app}\templates"; Flags: ignoreversion
 Source: "nssm.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Run]
@@ -52,9 +57,6 @@ Type: filesandordirs; Name: "{app}"
 
 [Code]
 var
-  SSHHostPage: TInputQueryWizardPage;
-  SSHUserPage: TInputQueryWizardPage;
-  SSHPasswordPage: TInputQueryWizardPage;
   PortPage: TInputQueryWizardPage;
   ServiceNamePage: TInputQueryWizardPage;
   PythonExecutablePath: String;
@@ -72,21 +74,6 @@ begin
     'Please provide the port on which the Docker Monitor service should run.');
   PortPage.Add('Desired Port (e.g. 5434):', False);
   PortPage.Values[0] := '5434';
-
-  SSHHostPage := CreateInputQueryPage(PortPage.ID,
-    'Docker SSH Connection Details', 'Enter the Docker host SSH connection details',
-    'Please provide the IP address, username, and password for the Docker host SSH connection.');
-  SSHHostPage.Add('SSH Host IP Address:', False);
-
-  SSHUserPage := CreateInputQueryPage(SSHHostPage.ID,
-    'SSH User', 'Enter the SSH username',
-    'Please enter the username for the SSH connection.');
-  SSHUserPage.Add('Username (need sudo privileges):', False);
-
-  SSHPasswordPage := CreateInputQueryPage(SSHUserPage.ID,
-    'SSH/Sudo Password', 'Enter the SSH and sudo password',
-    'This password will be used for both SSH login and sudo privileges.');
-  SSHPasswordPage.Add('Password:', True);
 end;
 
 function GetPythonPath: String;
@@ -127,12 +114,6 @@ var
 begin
   if LoadStringsFromFile(FilePath, Lines) then begin
     for I := 0 to GetArrayLength(Lines) - 1 do begin
-      if Pos('SSH_PASSWORD =', Lines[I]) > 0 then
-        Lines[I] := 'SSH_PASSWORD = ''' + SSHPasswordPage.Values[0] + '''';
-      if Pos('SSH_HOST =', Lines[I]) > 0 then
-        Lines[I] := 'SSH_HOST = ''' + SSHHostPage.Values[0] + '''';
-      if Pos('SSH_USER =', Lines[I]) > 0 then
-        Lines[I] := 'SSH_USER = ''' + SSHUserPage.Values[0] + '''';
       if Pos('PORT =', Lines[I]) > 0 then
         Lines[I] := 'PORT = ' + PortPage.Values[0];
     end;
