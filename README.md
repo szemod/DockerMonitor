@@ -1,47 +1,60 @@
-# Docker Monitor (Windows version)
+# DockerMonitor-WindowsVersion
+A Docker host monitoring tool that runs in its own Docker container and can monitor both local and remote Docker hosts.
 
-Docker Monitor is a lightweight Python-based web application that provides real-time monitoring of Docker container resource usage through a web dashboard. Inspired by the command-line tool ctop, it displays essential metrics such as CPU, memory, network I/O, and container status (running, paused, stopped) while also allowing basic container management actions.
+Docker Monitor is a lightweight Python-based web application that provides real-time monitoring of Docker container resource usage through a web dashboard. Inspired by the command-line tool `ctop`, it displays essential metrics such as CPU, memory, network I/O, and container status (running, paused, stopped) while also allowing basic container management actions.
 
-You can access the monitoring dashboard remotely via `http://localhost:PORT`, where `PORT` is the port number you specified during installation.
+You can access the monitoring dashboard locally or remotely (locally via `http://localhost:PORT`), where `PORT` is the port number specified during windows installation (default is 5434).
 
-Use the name and password you provided during installation to log in, which should match the SSH host login name/password.
-![image](https://github.com/user-attachments/assets/1715c29c-a863-4455-8cba-cf8504f1bb1d)
+Use the SSH credentials you provide during setup to log in, which should match the SSH host login details.
 
-![image](https://github.com/user-attachments/assets/b0ffdff0-0469-415c-ab5d-6ef3673adc95)
+![image](https://github.com/user-attachments/assets/07defbe4-7a57-4d5b-a3f7-6e916a9e404d) ![image](https://github.com/user-attachments/assets/13823764-17f4-4202-9e9a-b9921b85ba3f)
 
-## The goal of the project
+![image](https://github.com/user-attachments/assets/85a1c198-86ea-455a-a589-45196c799a2a)
 
-- Create a lightweight dashboard that allows users to view the resource usage of all running or filtered Docker containers on a single screen, sorted by resource usage. This will make it easy to identify containers that are using excessive or abnormal resources, which can impact the performance of other running containers. Also to provide basic intervention options, such as stopping or restarting containers, will be available if needed.
+## The Goal of the Project
+
+- **Real-Time Visibility:**  
+  Provide a lightweight dashboard that shows the resource usage of all running or filtered Docker containers on a single screen. This makes it easy to identify containers with excessive or abnormal resource consumption, which could impact overall performance.
+- **Basic Container Management:**  
+  Allow for simple intervention actions, such as stopping, restarting, or pausing containers, directly from the dashboard.
 
 ## Features
 
-- **Real-Time Monitoring:**
-  - Retrieves and displays live data for Docker containers, including:
-    - CPU usage
-    - Memory usage (with progress bars)
-    - Network traffic
-    - I/O statistics
-- **Container Status & Management:**
-  - Shows the status of each container (running, paused, stopped) and provides actions for managing containers (start, stop, restart, pause, resume) through a context menu.
-- **Inspect the container logs:**
-  - The simple view of container logs, which updates every 3 seconds, allows capturing log entries and errors that occur in the container.
-    ![image](https://github.com/user-attachments/assets/87ae79f6-e6af-4cdc-a6a4-e15c0110fec0)
-- **Filtering containers by name:**
-  - Clicking on 'NAME' in the header row opens a text input field where you can search or filter containers by name.
-    ![image](https://github.com/user-attachments/assets/997ac9e2-88e5-4246-8261-b21bef0d657a)
-- **Sorting by resource usage:**
-  - Clicking on 'CPU' or 'MEM' in the header row allows you to sort the containers in descending order based on the selected resource usage. Clicking anywhere on the screen resets the display to the default name-based sorting.
-   ![image](https://github.com/user-attachments/assets/8cb33330-f211-4b5f-8cde-8cb510132b5f)
-- **Remote Docker Host Access & Statistics:**
-  - Uses SSH (via Paramiko) to connect to a Docker host and execute commands for fetching container statistics.
-  - Uses CHART.JS to show real & short time history.
-  ![image](https://github.com/user-attachments/assets/dd745752-cd1c-46df-bb1d-1e46e884f109)
-- **Multiple Instance Support:**
-  - The installer dynamically sets the service name and installation directory based on user input, allowing for multiple instances without conflicts.
-- **Auto logout & Dark/Light mode:**
-  - Functions available on the login page.
-- **Simple & Responsive UI:**
-  - A minimal web interface built with HTML/CSS for easy monitoring.
+- **Simple & Responsive UI:**  
+  - A minimal, clean interface built with HTML/CSS for straightforward monitoring,
+  - Built as a progressive web application (PWA) for a complete experience on both mobile and desktop. (In mobile view on iOS, simply use the Shortcuts app for full-screen display as shown in the screenshots below.)
+    
+![image](https://github.com/user-attachments/assets/35982a9a-1ca2-4f73-9237-a53bbdac4900) ![image](https://github.com/user-attachments/assets/e30c6542-c78e-461e-8a60-2f600c6056ae)
+
+- **Real-Time Monitoring:**  
+  - Displays live data for Docker containers including CPU usage, memory usage (with progress bars), network traffic, and I/O statistics.
+
+- **Container Status & Management:**  
+  - Shows the status of each container (running, paused, stopped) and provides a context menu to perform actions (start, stop, restart, pause, resume).
+
+- **Inspect Container Logs:**  
+  - Offers a simple view of container logs that update periodically, making it easier to monitor log entries and errors.  
+  ![Logs Screenshot](https://github.com/user-attachments/assets/87ae79f6-e6af-4cdc-a6a4-e15c0110fec0)
+
+- **Filtering and Sorting:**  
+  - Click on the "NAME" header to filter containers by name.
+  - Click on "CPU" or "MEM" headers to sort containers by resource usage.  
+  ![image](https://github.com/user-attachments/assets/24756c80-7cd9-44ec-9b32-76dcfe242c3b)
+  ![image](https://github.com/user-attachments/assets/d20c9fb5-8493-4c7f-b14e-f94073b7a481)
+
+- **Remote Docker Host Access & Statistics:**  
+  - Connects via SSH (using Paramiko) to a Docker host to retrieve container statistics.
+  - Utilizes CHART.JS for real-time and short-term historical data visualization.  
+  ![Charts Screenshot](https://github.com/user-attachments/assets/dd745752-cd1c-46df-bb1d-1e46e884f109)
+
+- **Multiple Instance Support:**  
+  - Easily update the SSH settings to monitor different Docker hosts without conflicts.
+
+- **Auto Logout & Dark/Light Mode:**  
+  - Login page options allow for auto logout and switching between dark and light themes.
+
+- **Production-Ready Deployment:**  
+  - Runs with Gunicorn as the production WSGI server to ensure better performance and reliability.
 
 ## Getting Started
 
@@ -52,6 +65,8 @@ Use the name and password you provided during installation to log in, which shou
 - **Docker Host:** Access to a Docker host (local or remote) with SSH & SUDO privileges to run Docker commands.
 - **Inno Setup** (Optional): Required only if you plan to rebuild/modify the installer.
 
+### Installation
+
 ### Installation Steps (on Windows systems)
 
 1. **Run the Installer:**
@@ -61,42 +76,72 @@ Use the name and password you provided during installation to log in, which shou
    - During the installation wizard, you will be prompted for:
      - **Service Name:** Enter a name for the Windows service (default is `DockerMonitor`).
      - **Docker Monitor Port:** Specify the port for the web dashboard (default is `5434`).
-     - **SSH Details:** Provide the SSH host IP, username, and password for connecting to the Docker host.
 
 3. **Installation Process:**
-   - The installer copies the application files (`web_ctop_original.py`, `templates/index.html` and `templates/login.html`) to the selected directory.
+   - The installer copies the application files to the selected directory.
    - It creates a Python virtual environment and automatically installs the required packages (`Flask` and `Paramiko`).
    - Ensures the Python file is properly encoded (UTF-8) for execution.
    - Configuration settings are modified based on the provided inputs, and the application is registered as a Windows service using `nssm.exe`.
 
-### Accessing the Dashboard
+4. **SSH Setup:**
+   - DockerMonitor will be available at [http://localhost:5434/](http://localhost:5434/).
+   - On the first launch, you will be directed to the SSH setup page.
+   - Multiple hosts can be added, which can easily be selected later in the login window.
 
-- After installation, the service will start automatically. Open your web browser and navigate to `http://localhost:PORT`, replacing `PORT` with the port number you specified during installation.
+5. **Configure SSH Settings:**
+   - The last used Docker/SSH host is selected by default, but you can change it by selecting a different host on the login page.
+   - The setup page will prompt you for your SSH Host, SSH Username, and SSH Password.
+   - Save the settings to configure the connection to your Docker host.
+   - After a successful setup, you will be redirected to the login page.
 
-### Repository Structure
+6. **Login to the Dashboard:**
+   - Use the SSH Username and SSH Password provided during setup to log in. 
+   - Once authenticated, you can access real-time Docker container statistics via the web dashboard.
+   - On the Login page, you can change the SSH Host, SSH Username, and SSH Password at any time, and you can connect to any HOST of your choice.
+   
+## Repository Structure
 
-- `web_ctop_original.py`: The main Python script that retrieves Docker container statistics and serves the web dashboard.
-- `templates/index.html`: The HTML template for the web interface, styled for a minimal and responsive design.
-- `templates/login.html`: The HTML template for the login window, styled for a minimal and responsive design.
-- `installer.iss`: The Inno Setup script used to generate the Windows installer, configuring service name, installation directory, SSH settings, and port.
-- `nssm.exe`: The executable used to manage the Windows service.
+- **web_ctop_original.py**: Main Python script that retrieves Docker container statistics and serves the web dashboard.
+- **config_original.py**: Configuration file where SSH credentials and port settings are stored.
+- **templates/index.html**: HTML template for the desktop interface.
+- **templates/login.html**: HTML template for the login page.
+- **templates/setup.html**: HTML template for the SSH setup page.
+- **templates/mobile.html**: HTML template for the mobile interface.
+- **templates/service-worker.js**: Java script part for PWA.
+- **templates/manifest.json**: Jason file for PWA.
+- **templates/favicon.icon**: Icon file
+- **templates/favicon.png**: Icon file
 
-### Customization
+## Customization
 
-- **SSH Configuration:** Default SSH credentials in `web_ctop.py` are overridden during installation with your provided values.
-- **Port Setting:** Configurable via the installer.
+### SSH Configuration
+
+The default SSH credentials are stored in `config.py` and can be updated via the setup page.
+
+### Port Setting
+
+The application listens on port 5434 by default; modify the `PORT` variable in `config.py` to change this.
 
 ## License
 
-- MIT License 
+This project is licensed under the MIT License.
 
 ## Acknowledgements
 
-- **Flask:** Used as the web framework for building the dashboard.
-- **Paramiko:** Enables SSH connectivity to the Docker host.
-- **NSSM:** Used for managing the Docker Monitor service on Windows.
+- **Flask**: Web framework for building the dashboard.
+- **Paramiko**: Provides SSH connectivity to the Docker host.
+- **Gunicorn**: Production-ready WSGI server used for deployment.
+- **CHART.JS**: Used for real-time charting of container statistics.
+- **Docker**: Containerization platform that powers this solution.
 - Inspired by the functionality of ctop for real-time Docker monitoring.
 
-## Planned future developments and features.
+## Future Developments
 
-- Encrypted password management,
+- Encrypted password management for enhanced security.
+- Enhanced logging and alerting features.
+
+
+
+
+
+
