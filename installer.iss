@@ -3,7 +3,7 @@
 
 [Setup]
 AppName=Docker Monitor
-AppVersion=1.0
+AppVersion=1.3
 AppId={code:GetAppId}
 DefaultDirName={code:GetDefaultDirName}
 DefaultGroupName=Docker Monitor
