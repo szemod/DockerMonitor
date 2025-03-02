@@ -1,5 +1,4 @@
 # config.py
-SSH_HOST = ''
-SSH_USER = ''
-SSH_PASSWORD = ''
+DOCKER_HOSTS = []
+LAST_SELECTED_HOST = None
 PORT = 5434
