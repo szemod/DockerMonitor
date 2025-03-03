@@ -5,7 +5,6 @@ try:
 except ImportError:
     CryptographyDeprecationWarning = DeprecationWarning
 
-# Ignore deprecation warnings related to cryptography
 warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
 
 import os
@@ -42,7 +41,6 @@ def get_ssh_credentials():
         if selected_host:
             for host in hosts:
                 if host.get('docker_host_name') == selected_host:
-                    # Return SSH credentials for the selected host
                     return host.get('ssh_password'), host.get('ssh_host'), host.get('ssh_user')
             host = hosts[0]
             return host.get('ssh_password'), host.get('ssh_host'), host.get('ssh_user')
@@ -86,7 +84,6 @@ def convert_to_mb(value_str):
     except ValueError:
         return 0.0
     first_char = unit[0] if unit else ''
-    # Convert memory values to MB based on unit
     if first_char == 'K':
         return num / 1024
     elif first_char == 'M':
@@ -100,7 +97,6 @@ def convert_to_mb(value_str):
 
 def parse_container_status(status_str):
     status_str = status_str.strip()
-    # Parse container status from string
     if "Paused" in status_str:
         return "paused"
     elif status_str.startswith("Up"):
@@ -180,7 +176,6 @@ def fetch_docker_data():
         if len(parts) == 2:
             container_id = parts[0]
             stat = parts[1]
-            # Parse and store container statuses
             statuses[container_id[:12]] = parse_container_status(stat)
     max_used = 0
     for i in range(len(containers)):
@@ -191,7 +186,6 @@ def fetch_docker_data():
             max_used = container['mem_used_val']
     for i in range(len(containers)):
         c = containers[i]
-        # Calculate memory usage percentage for display
         if max_used > 0:
             c['mem_bar_percent'] = (c['mem_used_val'] / max_used) * 100
         else:
@@ -200,10 +194,10 @@ def fetch_docker_data():
 
 @app.before_request
 def require_login():
-    # Check if user is logged in for certain routes
-    if request.endpoint not in ['setup', 'static'] and not is_configured():
+    # Kiegészítve, hogy a 'delete_host' végpontot is engedélyezzük a bejelentkezés nélkül
+    if request.endpoint not in ['setup', 'static', 'delete_host'] and not is_configured():
         return redirect(url_for('setup'))
-    if request.endpoint not in ['login', 'setup', 'static']:
+    if request.endpoint not in ['login', 'setup', 'static', 'delete_host']:
         if not session.get('logged_in'):
             return redirect(url_for('login'))
 
@@ -211,7 +205,7 @@ def require_login():
 def setup():
     message = None
     error = None
-    # Load current hosts from config.py for setup
+    # Load current hosts from config.py
     current_hosts = []
     try:
         with open('config.py', 'r') as f:
@@ -223,7 +217,7 @@ def setup():
         print(f"Error reading config: {e}")
 
     if request.method == 'POST':
-        # Collect values for SSH configuration
+        # Várjuk az összes mező értékét: docker_host_name, ssh_host, ssh_user, ssh_password
         ssh_host = request.form.get('ssh_host')
         ssh_user = request.form.get('ssh_user')
         ssh_password = request.form.get('ssh_password')
@@ -238,7 +232,7 @@ def setup():
                 'ssh_password': ssh_password
             }
             current_hosts.append(new_host)
-            # Update the LAST_SELECTED_HOST value
+            # Frissítjük a LAST_SELECTED_HOST értéket is
             last_selected = docker_host_name
             try:
                 with open('config.py', 'w') as f:
@@ -257,7 +251,7 @@ def login():
     error = None
     if not is_configured():
         return redirect(url_for('setup'))
-    # Load hosts from config for login
+    # Load hosts from config
     current_hosts = []
     config = {}
     try:
@@ -281,7 +275,7 @@ def login():
         password = request.form.get('password')
         stored_ssh_password, stored_ssh_host, stored_ssh_user = get_ssh_credentials()
         if username == stored_ssh_user and password == stored_ssh_password:
-            # Update LAST_SELECTED_HOST value in config file
+            # Frissítjük a LAST_SELECTED_HOST értékét a config fájlban
             try:
                 config['LAST_SELECTED_HOST'] = selected_host
                 with open('config.py', 'w') as f:
@@ -301,13 +295,11 @@ def login():
 
 @app.route('/logout')
 def logout():
-    # Clear user session data on logout
     session.pop('logged_in', None)
     return redirect(url_for('login'))
 
 @app.route('/')
 def index():
-    # Render different templates based on mobile view preference
     if session.get('mobile_view', False):
         return render_template('mobile.html',
                                dark_mode=session.get('dark_mode', True),
@@ -321,7 +313,6 @@ def index():
 
 @app.route('/data')
 def data():
-    # Fetch and return docker container data as JSON
     containers = fetch_docker_data()
     return jsonify(containers)
 
@@ -365,6 +356,37 @@ def logs():
     except Exception as e:
         logs_output = f'Error fetching logs: {str(e)}'
     return jsonify(logs=logs_output)
+
+@app.route('/delete_host', methods=['POST'])
+def delete_host():
+    data = request.get_json()
+    host_name = data.get('docker_host_name')
+    if not host_name:
+        return jsonify(success=False, error="No host name provided"), 400
+    current_hosts = []
+    try:
+        with open('config.py', 'r') as f:
+            config_content = f.read()
+        config = {}
+        exec(config_content, config)
+        current_hosts = config.get('DOCKER_HOSTS', [])
+    except Exception as e:
+        return jsonify(success=False, error=str(e)), 500
+
+    new_hosts = [host for host in current_hosts if host.get('docker_host_name') != host_name]
+    last_selected = config.get('LAST_SELECTED_HOST')
+    if last_selected == host_name:
+        last_selected = new_hosts[0]['docker_host_name'] if new_hosts else None
+
+    try:
+        with open('config.py', 'w') as f:
+            f.write("DOCKER_HOSTS = " + repr(new_hosts) + "\n")
+            f.write("LAST_SELECTED_HOST = " + repr(last_selected) + "\n")
+            f.write("PORT = 5434\n")
+    except Exception as e:
+        return jsonify(success=False, error="An error occurred while saving the configuration!"), 500
+
+    return jsonify(success=True)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=PORT)
